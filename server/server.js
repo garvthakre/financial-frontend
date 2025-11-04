@@ -1,10 +1,7 @@
 require('dotenv').config();
 const app = require('./src/app');
 const connectDB = require('./src/config/database');
-const { connectRedis } = require('./src/config/redis');
-const { initQueue, createTransactionWorker } = require('./src/config/queue');
 const cronService = require('./src/services/cronService');
-const transactionService = require('./src/services/transactionService');
 const logger = require('./src/utils/logger');
 
 const PORT = process.env.PORT || 5000;
@@ -15,40 +12,8 @@ const startServer = async () => {
     // Connect to database
     await connectDB();
 
-    // Connect to Redis (optional)
-    try {
-      await connectRedis();
-    } catch (err) {
-      logger.warn('Redis connection failed, running without cache');
-    }
-
-    // Initialize queue (optional)
-    try {
-      await initQueue();
-    } catch (err) {
-      logger.warn('Queue initialization failed, using direct processing');
-    }
-
     // Start cron jobs
     cronService.startDailyReset();
-
-    // Start BullMQ worker for transactions (if queue is available)
-    try {
-      createTransactionWorker(async (job) => {
-        try {
-          await transactionService.processTransaction(job.data, { 
-            ip: 'queue',
-            get: () => 'BullMQ Worker'
-          });
-          logger.info(`Transaction processed from queue: ${job.id}`);
-        } catch (error) {
-          logger.error(`Transaction queue processing failed: ${job.id}`, error);
-          throw error;
-        }
-      });
-    } catch (err) {
-      logger.warn('Worker creation skipped');
-    }
 
     // Start server
     const server = app.listen(PORT, () => {
