@@ -4,14 +4,39 @@ import { useEffect, useState } from "react"
 import { useData } from "@/context/DataContext"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import SearchFilter from "@/components/shared/SearchFilter"
+import ExportButton from "@/components/shared/ExportButton"
+import ClientFormModal from "@/components/modals/ClientFormModal"
 
 export default function ClientsPage() {
   const { fetchClients, clients, loading } = useData()
   const [showForm, setShowForm] = useState(false)
+  const [filteredClients, setFilteredClients] = useState([])
+  const [searchQuery, setSearchQuery] = useState("")
 
   useEffect(() => {
     fetchClients()
   }, [fetchClients])
+
+  useEffect(() => {
+    if (searchQuery) {
+      setFilteredClients(
+        clients.filter(
+          (c) =>
+            c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            c.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            c.phone.includes(searchQuery),
+        ),
+      )
+    } else {
+      setFilteredClients(clients)
+    }
+  }, [searchQuery, clients])
+
+  const handleAddClient = (formData) => {
+    console.log("[v0] New client:", formData)
+    setShowForm(false)
+  }
 
   return (
     <div className="p-8 bg-slate-950 min-h-screen">
@@ -20,12 +45,19 @@ export default function ClientsPage() {
           <h1 className="text-3xl font-bold text-white mb-2">Clients Management</h1>
           <p className="text-slate-400">Manage all registered clients</p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700">+ Add Client</Button>
+        <Button onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-700">
+          + Add Client
+        </Button>
+      </div>
+
+      <div className="mb-6 flex gap-3">
+        <SearchFilter onSearch={setSearchQuery} />
+        <ExportButton data={filteredClients} filename="clients" />
       </div>
 
       <Card className="bg-slate-900 border-slate-800">
         <CardHeader>
-          <CardTitle className="text-white">All Clients</CardTitle>
+          <CardTitle className="text-white">All Clients ({filteredClients.length})</CardTitle>
           <CardDescription>List of registered clients in the system</CardDescription>
         </CardHeader>
         <CardContent>
@@ -43,7 +75,7 @@ export default function ClientsPage() {
                 </tr>
               </thead>
               <tbody>
-                {clients.map((client) => (
+                {filteredClients.map((client) => (
                   <tr key={client.id} className="border-b border-slate-800 hover:bg-slate-800 transition">
                     <td className="py-4 px-4 text-slate-300 font-semibold">{client.name}</td>
                     <td className="py-4 px-4 text-slate-400">{client.email}</td>
@@ -66,6 +98,8 @@ export default function ClientsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <ClientFormModal isOpen={showForm} onClose={() => setShowForm(false)} onSubmit={handleAddClient} />
     </div>
   )
 }

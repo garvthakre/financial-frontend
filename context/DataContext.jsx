@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, useCallback } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react"
 
 const DataContext = createContext()
 
@@ -11,6 +11,10 @@ export function DataProvider({ children }) {
   const [branches, setBranches] = useState([])
   const [staff, setStaff] = useState([])
   const [loading, setLoading] = useState(false)
+
+  const autoRefreshIntervalRef = useRef(null)
+
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState(null)
 
   // Mock data generation
   const generateMockData = useCallback((role, branchId = null) => {
@@ -32,15 +36,26 @@ export function DataProvider({ children }) {
     return JSON.parse(storedData)
   }, [])
 
-  // Reset data if date changed
   useEffect(() => {
-    const lastResetDate = localStorage.getItem("lastResetDate")
-    const today = new Date().toDateString()
+    const checkDailyReset = () => {
+      const lastResetDate = localStorage.getItem("lastResetDate")
+      const today = new Date().toDateString()
 
-    if (lastResetDate !== today) {
-      localStorage.clear()
-      localStorage.setItem("lastResetDate", today)
+      if (lastResetDate !== today) {
+        // Clear only today's data, keep historical records
+        const keys = Object.keys(localStorage)
+        keys.forEach((key) => {
+          if (key.includes("dashboard-")) {
+            localStorage.removeItem(key)
+          }
+        })
+        localStorage.setItem("lastResetDate", today)
+      }
     }
+
+    checkDailyReset()
+    const interval = setInterval(checkDailyReset, 60000) // Check every minute
+    return () => clearInterval(interval)
   }, [])
 
   const fetchDashboardData = useCallback(
@@ -56,11 +71,11 @@ export function DataProvider({ children }) {
     [generateMockData],
   )
 
-  const fetchTransactions = useCallback(async (role, branchId = null, limit = 20) => {
+  const fetchTransactions = useCallback(async (role, branchId = null, limit = 20, filters = {}) => {
     setLoading(true)
     await new Promise((r) => setTimeout(r, 300))
 
-    const mockTransactions = Array.from({ length: limit }).map((_, i) => ({
+    let mockTransactions = Array.from({ length: limit }).map((_, i) => ({
       id: `txn-${i + 1}`,
       amount: Math.floor(Math.random() * 100000),
       type: Math.random() > 0.5 ? "credit" : "debit",
@@ -71,15 +86,28 @@ export function DataProvider({ children }) {
       branch: branchId || "N/A",
     }))
 
+    // Apply filters
+    if (filters.searchQuery) {
+      mockTransactions = mockTransactions.filter(
+        (t) =>
+          t.utrId.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
+          t.remark.toLowerCase().includes(filters.searchQuery.toLowerCase()),
+      )
+    }
+
+    if (filters.type && filters.type !== "all") {
+      mockTransactions = mockTransactions.filter((t) => t.type === filters.type)
+    }
+
     setTransactions(mockTransactions)
     setLoading(false)
   }, [])
 
-  const fetchClients = useCallback(async () => {
+  const fetchClients = useCallback(async (filters = {}) => {
     setLoading(true)
     await new Promise((r) => setTimeout(r, 300))
 
-    const mockClients = Array.from({ length: 10 }).map((_, i) => ({
+    let mockClients = Array.from({ length: 10 }).map((_, i) => ({
       id: `client-${i + 1}`,
       name: `Client ${i + 1}`,
       email: `client${i + 1}@example.com`,
@@ -89,15 +117,24 @@ export function DataProvider({ children }) {
       totalTransactions: Math.floor(Math.random() * 500),
     }))
 
+    // Apply filters
+    if (filters.searchQuery) {
+      mockClients = mockClients.filter(
+        (c) =>
+          c.name.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
+          c.email.toLowerCase().includes(filters.searchQuery.toLowerCase()),
+      )
+    }
+
     setClients(mockClients)
     setLoading(false)
   }, [])
 
-  const fetchBranches = useCallback(async () => {
+  const fetchBranches = useCallback(async (filters = {}) => {
     setLoading(true)
     await new Promise((r) => setTimeout(r, 300))
 
-    const mockBranches = [
+    let mockBranches = [
       {
         id: "branch-1",
         name: "Main Branch",
@@ -124,6 +161,15 @@ export function DataProvider({ children }) {
       },
     ]
 
+    // Apply filters
+    if (filters.searchQuery) {
+      mockBranches = mockBranches.filter(
+        (b) =>
+          b.name.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
+          b.location.toLowerCase().includes(filters.searchQuery.toLowerCase()),
+      )
+    }
+
     setBranches(mockBranches)
     setLoading(false)
   }, [])
@@ -135,6 +181,21 @@ export function DataProvider({ children }) {
       date: new Date().toISOString(),
     }
     setTransactions((prev) => [newTransaction, ...prev])
+  }, [])
+
+  const startAutoRefresh = useCallback((interval = 5000) => {
+    const intervalId = setInterval(() => {
+      setDashboardData((prev) => (prev ? { ...prev, updatedAt: new Date().toISOString() } : null))
+    }, interval)
+    autoRefreshIntervalRef.current = intervalId
+    return intervalId
+  }, [])
+
+  const stopAutoRefresh = useCallback(() => {
+    if (autoRefreshIntervalRef.current) {
+      clearInterval(autoRefreshIntervalRef.current)
+      autoRefreshIntervalRef.current = null
+    }
   }, [])
 
   return (
@@ -151,6 +212,8 @@ export function DataProvider({ children }) {
         fetchClients,
         fetchBranches,
         addTransaction,
+        startAutoRefresh,
+        stopAutoRefresh,
       }}
     >
       {children}

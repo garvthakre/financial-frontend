@@ -3,14 +3,18 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import StatCard from "@/components/shared/StatCard"
 import { useData } from "@/context/DataContext"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 
 export default function ClientDashboard({ data, loading }) {
   const { fetchTransactions, transactions } = useData()
+  const fetchedRef = useRef(false)
 
   useEffect(() => {
-    fetchTransactions("client")
-  }, [fetchTransactions])
+    if (!fetchedRef.current) {
+      fetchedRef.current = true
+      fetchTransactions("client")
+    }
+  }, []) // Empty dependency array - fetch only once on mount
 
   return (
     <div className="p-8 bg-slate-950 min-h-screen">

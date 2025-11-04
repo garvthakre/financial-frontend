@@ -1,9 +1,16 @@
 "use client"
 
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import SearchFilter from "@/components/shared/SearchFilter"
+import ExportButton from "@/components/shared/ExportButton"
+import StaffFormModal from "@/components/modals/StaffFormModal"
 
 export default function StaffPage() {
+  const [showForm, setShowForm] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+
   const staffList = Array.from({ length: 8 }).map((_, i) => ({
     id: `staff-${i + 1}`,
     name: `Staff Member ${i + 1}`,
@@ -13,6 +20,20 @@ export default function StaffPage() {
     joinDate: new Date(2024, 0, i + 1).toLocaleDateString(),
   }))
 
+  const filteredStaff = searchQuery
+    ? staffList.filter(
+        (s) =>
+          s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          s.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          s.branch.toLowerCase().includes(searchQuery.toLowerCase()),
+      )
+    : staffList
+
+  const handleAddStaff = (formData) => {
+    console.log("[v0] New staff:", formData)
+    setShowForm(false)
+  }
+
   return (
     <div className="p-8 bg-slate-950 min-h-screen">
       <div className="mb-8 flex justify-between items-start">
@@ -20,12 +41,19 @@ export default function StaffPage() {
           <h1 className="text-3xl font-bold text-white mb-2">Staff Management</h1>
           <p className="text-slate-400">Manage team members and permissions</p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700">+ Add Staff</Button>
+        <Button onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-700">
+          + Add Staff
+        </Button>
+      </div>
+
+      <div className="mb-6 flex gap-3">
+        <SearchFilter onSearch={setSearchQuery} />
+        <ExportButton data={filteredStaff} filename="staff" />
       </div>
 
       <Card className="bg-slate-900 border-slate-800">
         <CardHeader>
-          <CardTitle className="text-white">Staff Members</CardTitle>
+          <CardTitle className="text-white">Staff Members ({filteredStaff.length})</CardTitle>
           <CardDescription>List of all staff members</CardDescription>
         </CardHeader>
         <CardContent>
@@ -42,7 +70,7 @@ export default function StaffPage() {
                 </tr>
               </thead>
               <tbody>
-                {staffList.map((staff) => (
+                {filteredStaff.map((staff) => (
                   <tr key={staff.id} className="border-b border-slate-800 hover:bg-slate-800 transition">
                     <td className="py-4 px-4 text-slate-300 font-semibold">{staff.name}</td>
                     <td className="py-4 px-4 text-slate-400">{staff.email}</td>
@@ -64,6 +92,8 @@ export default function StaffPage() {
           </div>
         </CardContent>
       </Card>
+
+      <StaffFormModal isOpen={showForm} onClose={() => setShowForm(false)} onSubmit={handleAddStaff} />
     </div>
   )
 }

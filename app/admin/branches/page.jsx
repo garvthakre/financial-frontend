@@ -1,16 +1,40 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useData } from "@/context/DataContext"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import SearchFilter from "@/components/shared/SearchFilter"
+import BranchFormModal from "@/components/modals/BranchFormModal"
 
 export default function BranchesPage() {
   const { fetchBranches, branches, loading } = useData()
+  const [showForm, setShowForm] = useState(false)
+  const [filteredBranches, setFilteredBranches] = useState([])
+  const [searchQuery, setSearchQuery] = useState("")
 
   useEffect(() => {
     fetchBranches()
   }, [fetchBranches])
+
+  useEffect(() => {
+    if (searchQuery) {
+      setFilteredBranches(
+        branches.filter(
+          (b) =>
+            b.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            b.location.toLowerCase().includes(searchQuery.toLowerCase()),
+        ),
+      )
+    } else {
+      setFilteredBranches(branches)
+    }
+  }, [searchQuery, branches])
+
+  const handleAddBranch = (formData) => {
+    console.log("[v0] New branch:", formData)
+    setShowForm(false)
+  }
 
   return (
     <div className="p-8 bg-slate-950 min-h-screen">
@@ -19,11 +43,17 @@ export default function BranchesPage() {
           <h1 className="text-3xl font-bold text-white mb-2">Branch Management</h1>
           <p className="text-slate-400">Manage all business branches</p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700">+ Add Branch</Button>
+        <Button onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-700">
+          + Add Branch
+        </Button>
+      </div>
+
+      <div className="mb-6">
+        <SearchFilter onSearch={setSearchQuery} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {branches.map((branch) => (
+        {filteredBranches.map((branch) => (
           <Card key={branch.id} className="bg-slate-900 border-slate-800 hover:border-slate-600 transition">
             <CardHeader>
               <CardTitle className="text-white">{branch.name}</CardTitle>
@@ -46,6 +76,8 @@ export default function BranchesPage() {
           </Card>
         ))}
       </div>
+
+      <BranchFormModal isOpen={showForm} onClose={() => setShowForm(false)} onSubmit={handleAddBranch} />
     </div>
   )
 }
