@@ -1,0 +1,466 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const { body, validationResult } = require('express-validator');
+const User = require('../models/User');
+const Branch = require('../models/Branch');
+const Settings = require('../models/Settings');
+const Transaction = require('../models/Transaction');
+const { protect, authorize } = require('../middleware/auth');
+const dashboardService = require('../services/dashboardService');
+const { createAuditLog } = require('../utils/auditLog');
+const logger = require('../utils/logger');
+
+const router = express.Router();
+
+// Protect all admin routes
+router.use(protect, authorize('admin'));
+
+// @route   POST /api/admin/clients
+// @desc    Create new client
+// @access  Admin only
+router.post('/clients', [
+  body('name').notEmpty().trim().withMessage('Name is required'),
+  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('walletBalance').optional().isFloat({ min: 0 }).withMessage('Wallet balance must be positive')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, errors: errors.array() });
+    }
+
+    const { name, email, password, walletBalance } = req.body;
+
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      return res.status(400).json({ success: false, message: 'Email already in use' });
+    }
+
+    const client = await User.create({
+      name,
+      email,
+      password,
+      role: 'client',
+      walletBalance: walletBalance || 50000,
+      createdBy: req.user._id
+    });
+
+    await createAuditLog(req.user._id, 'create_client', 'user', client._id, 
+      { name, email, walletBalance: client.walletBalance }, req);
+
+    logger.info(`Client created: ${client.email} by admin ${req.user.email}`);
+
+    res.status(201).json({
+      success: true,
+      data: {
+        _id: client._id,
+        name: client.name,
+        email: client.email,
+        role: client.role,
+        walletBalance: client.walletBalance,
+        createdAt: client.createdAt
+      }
+    });
+  } catch (error) {
+    logger.error('Create client error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   POST /api/admin/branches
+// @desc    Create new branch
+// @access  Admin only
+router.post('/branches', [
+  body('name').notEmpty().trim().withMessage('Branch name is required'),
+  body('code').notEmpty().trim().withMessage('Branch code is required'),
+  body('clientId').isMongoId().withMessage('Valid client ID is required'),
+  body('address').optional().trim()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, errors: errors.array() });
+    }
+
+    const { name, code, clientId, address } = req.body;
+
+    const client = await User.findById(clientId);
+    if (!client || client.role !== 'client') {
+      return res.status(400).json({ success: false, message: 'Invalid client ID' });
+    }
+
+    const branch = await Branch.create({
+      name,
+      code: code.toUpperCase(),
+      clientId,
+      address: address || '',
+      createdBy: req.user._id
+    });
+
+    await createAuditLog(req.user._id, 'create_branch', 'branch', branch._id, 
+      { name, code, clientId }, req);
+
+    logger.info(`Branch created: ${branch.code} by admin ${req.user.email}`);
+
+    res.status(201).json({
+      success: true,
+      data: branch
+    });
+  } catch (error) {
+    logger.error('Create branch error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   POST /api/admin/staff
+// @desc    Create new staff member
+// @access  Admin only
+router.post('/staff', [
+  body('name').notEmpty().trim().withMessage('Name is required'),
+  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('branches').isArray().withMessage('Branches must be an array'),
+  body('clientId').isMongoId().withMessage('Valid client ID is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, errors: errors.array() });
+    }
+
+    const { name, email, password, branches, clientId } = req.body;
+
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      return res.status(400).json({ success: false, message: 'Email already in use' });
+    }
+
+    // Validate client exists
+    const client = await User.findById(clientId);
+    if (!client || client.role !== 'client') {
+      return res.status(400).json({ success: false, message: 'Invalid client ID' });
+    }
+
+    // Validate all branches exist
+    if (branches && branches.length > 0) {
+      const branchCount = await Branch.countDocuments({ _id: { $in: branches } });
+      if (branchCount !== branches.length) {
+        return res.status(400).json({ success: false, message: 'One or more invalid branch IDs' });
+      }
+    }
+
+    const staff = await User.create({
+      name,
+      email,
+      password,
+      role: 'staff',
+      branches: branches || [],
+      clientId,
+      createdBy: req.user._id
+    });
+
+    // Add staff to branches
+    if (branches && branches.length > 0) {
+      await Branch.updateMany(
+        { _id: { $in: branches } },
+        { $addToSet: { staffMembers: staff._id } }
+      );
+    }
+
+    await createAuditLog(req.user._id, 'create_staff', 'user', staff._id, 
+      { name, email, branches }, req);
+
+    logger.info(`Staff created: ${staff.email} by admin ${req.user.email}`);
+
+    res.status(201).json({
+      success: true,
+      data: {
+        _id: staff._id,
+        name: staff.name,
+        email: staff.email,
+        role: staff.role,
+        branches: staff.branches,
+        clientId: staff.clientId,
+        createdAt: staff.createdAt
+      }
+    });
+  } catch (error) {
+    logger.error('Create staff error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/admin/dashboard
+// @desc    Get admin dashboard stats
+// @access  Admin only
+router.get('/dashboard', async (req, res) => {
+  try {
+    const { clientId, branchId } = req.query;
+    
+    const filters = {};
+    if (clientId) filters.clientId = mongoose.Types.ObjectId(clientId);
+    if (branchId) filters.branchId = mongoose.Types.ObjectId(branchId);
+
+    const dashboard = await dashboardService.getAdminDashboard(filters);
+    
+    res.json({
+      success: true,
+      data: dashboard
+    });
+  } catch (error) {
+    logger.error('Admin dashboard error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/admin/clients
+// @desc    Get all clients
+// @access  Admin only
+router.get('/clients', async (req, res) => {
+  try {
+    const clients = await User.find({ role: 'client' })
+      .select('-password')
+      .sort({ createdAt: -1 });
+    
+    res.json({
+      success: true,
+      count: clients.length,
+      data: clients
+    });
+  } catch (error) {
+    logger.error('Get clients error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/admin/branches
+// @desc    Get all branches
+// @access  Admin only
+router.get('/branches', async (req, res) => {
+  try {
+    const branches = await Branch.find()
+      .populate('clientId', 'name email')
+      .populate('staffMembers', 'name email')
+      .sort({ createdAt: -1 });
+    
+    res.json({
+      success: true,
+      count: branches.length,
+      data: branches
+    });
+  } catch (error) {
+    logger.error('Get branches error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/admin/staff
+// @desc    Get all staff members
+// @access  Admin only
+router.get('/staff', async (req, res) => {
+  try {
+    const staff = await User.find({ role: 'staff' })
+      .select('-password')
+      .populate('branches', 'name code')
+      .populate('clientId', 'name email')
+      .sort({ createdAt: -1 });
+    
+    res.json({
+      success: true,
+      count: staff.length,
+      data: staff
+    });
+  } catch (error) {
+    logger.error('Get staff error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/admin/transactions
+// @desc    Get all transactions
+// @access  Admin only
+router.get('/transactions', async (req, res) => {
+  try {
+    const { page = 1, limit = 20, clientId, branchId, type, startDate, endDate } = req.query;
+
+    const query = { status: 'completed' };
+    
+    if (clientId) query.clientId = clientId;
+    if (branchId) query.branchId = branchId;
+    if (type) query.type = type;
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+
+    const aggregate = Transaction.aggregate([
+      { $match: query },
+      { $sort: { createdAt: -1 } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'clientId',
+          foreignField: '_id',
+          as: 'client'
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'staffId',
+          foreignField: '_id',
+          as: 'staff'
+        }
+      },
+      {
+        $lookup: {
+          from: 'branches',
+          localField: 'branchId',
+          foreignField: '_id',
+          as: 'branch'
+        }
+      },
+      { $unwind: '$client' },
+      { $unwind: '$staff' },
+      { $unwind: '$branch' },
+      {
+        $project: {
+          type: 1,
+          amount: 1,
+          commission: 1,
+          finalAmount: 1,
+          remark: 1,
+          utrId: 1,
+          balanceBefore: 1,
+          balanceAfter: 1,
+          status: 1,
+          createdAt: 1,
+          'client.name': 1,
+          'client.email': 1,
+          'staff.name': 1,
+          'staff.email': 1,
+          'branch.name': 1,
+          'branch.code': 1
+        }
+      }
+    ]);
+
+    const options = {
+      page: parseInt(page),
+      limit: parseInt(limit)
+    };
+
+    const transactions = await Transaction.aggregatePaginate(aggregate, options);
+    
+    res.json({
+      success: true,
+      data: transactions
+    });
+  } catch (error) {
+    logger.error('Get transactions error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   PUT /api/admin/settings
+// @desc    Update system settings
+// @access  Admin only
+router.put('/settings', [
+  body('commissionRate').optional().isFloat({ min: 0, max: 100 }).withMessage('Commission rate must be between 0-100'),
+  body('depositDeductionRate').optional().isFloat({ min: 0, max: 100 }).withMessage('Deposit deduction rate must be between 0-100')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, errors: errors.array() });
+    }
+
+    const { commissionRate, depositDeductionRate } = req.body;
+
+    let settings = await Settings.findOne();
+    
+    if (!settings) {
+      settings = await Settings.create({
+        commissionRate: commissionRate || 3,
+        depositDeductionRate: depositDeductionRate || 3,
+        updatedBy: req.user._id
+      });
+    } else {
+      if (commissionRate !== undefined) settings.commissionRate = commissionRate;
+      if (depositDeductionRate !== undefined) settings.depositDeductionRate = depositDeductionRate;
+      settings.updatedBy = req.user._id;
+      await settings.save();
+    }
+
+    await createAuditLog(req.user._id, 'update_settings', 'settings', settings._id, 
+      { commissionRate, depositDeductionRate }, req);
+
+    logger.info(`Settings updated by admin ${req.user.email}`);
+
+    res.json({
+      success: true,
+      data: settings
+    });
+  } catch (error) {
+    logger.error('Update settings error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/admin/settings
+// @desc    Get system settings
+// @access  Admin only
+router.get('/settings', async (req, res) => {
+  try {
+    let settings = await Settings.findOne();
+    
+    if (!settings) {
+      settings = await Settings.create({
+        commissionRate: 3,
+        depositDeductionRate: 3
+      });
+    }
+
+    res.json({
+      success: true,
+      data: settings
+    });
+  } catch (error) {
+    logger.error('Get settings error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   PUT /api/admin/users/:id/status
+// @desc    Activate/Deactivate user
+// @access  Admin only
+router.put('/users/:id/status', async (req, res) => {
+  try {
+    const { isActive } = req.body;
+    
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    user.isActive = isActive;
+    await user.save();
+
+    await createAuditLog(req.user._id, 'update_user_status', 'user', user._id, 
+      { isActive }, req);
+
+    logger.info(`User ${user.email} status updated to ${isActive} by admin ${req.user.email}`);
+
+    res.json({
+      success: true,
+      data: user
+    });
+  } catch (error) {
+    logger.error('Update user status error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+module.exports = router;

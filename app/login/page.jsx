@@ -37,7 +37,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
       <Card className="w-full max-w-md bg-slate-800 border-slate-700">
         <CardHeader className="space-y-2">
-          <CardTitle className="text-2xl text-white">Financial Dashboard</CardTitle>
+          <CardTitle className="text-2xl text-white">MAHADEV PAY</CardTitle>
           <CardDescription className="text-slate-400">Sign in to your account</CardDescription>
         </CardHeader>
         <CardContent>

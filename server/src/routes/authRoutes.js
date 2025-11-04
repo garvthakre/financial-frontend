@@ -1,0 +1,114 @@
+const express = require('express');
+const jwt = require('jsonwebtoken');
+const { body, validationResult } = require('express-validator');
+const User = require('../models/User');
+const { authLimiter } = require('../middleware/rateLimiter');
+const logger = require('../utils/logger');
+
+const router = express.Router();
+
+const generateToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRE || '7d'
+  });
+};
+
+// @route   POST /api/auth/register
+// @desc    Register admin (first time setup)
+// @access  Public
+router.post('/register', [
+  body('name').notEmpty().trim().withMessage('Name is required'),
+  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('role').equals('admin').withMessage('Only admin registration allowed')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, errors: errors.array() });
+    }
+
+    const { name, email, password, role } = req.body;
+
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      return res.status(400).json({ success: false, message: 'Email already registered' });
+    }
+
+    const user = await User.create({
+      name,
+      email,
+      password,
+      role: 'admin'
+    });
+
+    logger.info(`Admin registered: ${user.email}`);
+
+    res.status(201).json({
+      success: true,
+      data: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        token: generateToken(user._id)
+      }
+    });
+  } catch (error) {
+    logger.error('Registration error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   POST /api/auth/login
+// @desc    Login user
+// @access  Public
+router.post('/login', authLimiter, [
+  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('password').notEmpty().withMessage('Password is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, errors: errors.array() });
+    }
+
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email }).select('+password');
+
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    if (!user.isActive) {
+      return res.status(401).json({ success: false, message: 'Account is inactive' });
+    }
+
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    logger.info(`User logged in: ${user.email}`);
+
+    res.json({
+      success: true,
+      data: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        walletBalance: user.walletBalance,
+        branches: user.branches,
+        clientId: user.clientId,
+        token: generateToken(user._id)
+      }
+    });
+  } catch (error) {
+    logger.error('Login error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+module.exports = router;
