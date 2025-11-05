@@ -27,7 +27,11 @@ router.post('/clients', [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ 
+        success: false, 
+        message: errors.array()[0].msg,
+        errors: errors.array() 
+      });
     }
 
     const { name, email, password, walletBalance } = req.body;
@@ -51,16 +55,13 @@ router.post('/clients', [
 
     logger.info(`Client created: ${client.email} by admin ${req.user.email}`);
 
+    // Return client without password
+    const clientData = await User.findById(client._id).select('-password');
+
     res.status(201).json({
       success: true,
-      data: {
-        _id: client._id,
-        name: client.name,
-        email: client.email,
-        role: client.role,
-        walletBalance: client.walletBalance,
-        createdAt: client.createdAt
-      }
+      message: 'Client created successfully',
+      data: clientData
     });
   } catch (error) {
     logger.error('Create client error:', error);
@@ -80,10 +81,23 @@ router.post('/branches', [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ 
+        success: false, 
+        message: errors.array()[0].msg,
+        errors: errors.array() 
+      });
     }
 
     const { name, code, clientId, address } = req.body;
+
+    // Check if branch code already exists
+    const existingBranch = await Branch.findOne({ code: code.toUpperCase() });
+    if (existingBranch) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Branch code already exists' 
+      });
+    }
 
     const client = await User.findById(clientId);
     if (!client || client.role !== 'client') {
@@ -98,6 +112,11 @@ router.post('/branches', [
       createdBy: req.user._id
     });
 
+    // Populate client data for response
+    const populatedBranch = await Branch.findById(branch._id)
+      .populate('clientId', 'name email')
+      .populate('staffMembers', 'name email');
+
     await createAuditLog(req.user._id, 'create_branch', 'branch', branch._id, 
       { name, code, clientId }, req);
 
@@ -105,10 +124,17 @@ router.post('/branches', [
 
     res.status(201).json({
       success: true,
-      data: branch
+      message: 'Branch created successfully',
+      data: populatedBranch
     });
   } catch (error) {
     logger.error('Create branch error:', error);
+    if (error.code === 11000) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Branch code already exists' 
+      });
+    }
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -126,7 +152,11 @@ router.post('/staff', [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ 
+        success: false, 
+        message: errors.array()[0].msg,
+        errors: errors.array() 
+      });
     }
 
     const { name, email, password, branches, clientId } = req.body;
@@ -168,6 +198,12 @@ router.post('/staff', [
       );
     }
 
+    // Get populated staff data
+    const populatedStaff = await User.findById(staff._id)
+      .select('-password')
+      .populate('branches', 'name code')
+      .populate('clientId', 'name email');
+
     await createAuditLog(req.user._id, 'create_staff', 'user', staff._id, 
       { name, email, branches }, req);
 
@@ -175,15 +211,8 @@ router.post('/staff', [
 
     res.status(201).json({
       success: true,
-      data: {
-        _id: staff._id,
-        name: staff.name,
-        email: staff.email,
-        role: staff.role,
-        branches: staff.branches,
-        clientId: staff.clientId,
-        createdAt: staff.createdAt
-      }
+      message: 'Staff member created successfully',
+      data: populatedStaff
     });
   } catch (error) {
     logger.error('Create staff error:', error);
@@ -199,8 +228,12 @@ router.get('/dashboard', async (req, res) => {
     const { clientId, branchId } = req.query;
     
     const filters = {};
-    if (clientId) filters.clientId = mongoose.Types.ObjectId(clientId);
-    if (branchId) filters.branchId = mongoose.Types.ObjectId(branchId);
+    if (clientId && mongoose.Types.ObjectId.isValid(clientId)) {
+      filters.clientId = mongoose.Types.ObjectId(clientId);
+    }
+    if (branchId && mongoose.Types.ObjectId.isValid(branchId)) {
+      filters.branchId = mongoose.Types.ObjectId(branchId);
+    }
 
     const dashboard = await dashboardService.getAdminDashboard(filters);
     
@@ -278,7 +311,7 @@ router.get('/staff', async (req, res) => {
 });
 
 // @route   GET /api/admin/transactions
-// @desc    Get all transactions
+// @desc    Get all transactions with pagination
 // @access  Admin only
 router.get('/transactions', async (req, res) => {
   try {
@@ -286,8 +319,12 @@ router.get('/transactions', async (req, res) => {
 
     const query = { status: 'completed' };
     
-    if (clientId) query.clientId = clientId;
-    if (branchId) query.branchId = branchId;
+    if (clientId && mongoose.Types.ObjectId.isValid(clientId)) {
+      query.clientId = mongoose.Types.ObjectId(clientId);
+    }
+    if (branchId && mongoose.Types.ObjectId.isValid(branchId)) {
+      query.branchId = mongoose.Types.ObjectId(branchId);
+    }
     if (type) query.type = type;
     if (startDate || endDate) {
       query.createdAt = {};
@@ -322,9 +359,13 @@ router.get('/transactions', async (req, res) => {
           as: 'branch'
         }
       },
-      { $unwind: '$client' },
-      { $unwind: '$staff' },
-      { $unwind: '$branch' },
+      {
+        $addFields: {
+          client: { $arrayElemAt: ['$client', 0] },
+          staff: { $arrayElemAt: ['$staff', 0] },
+          branch: { $arrayElemAt: ['$branch', 0] }
+        }
+      },
       {
         $project: {
           type: 1,
@@ -401,6 +442,7 @@ router.put('/settings', [
 
     res.json({
       success: true,
+      message: 'Settings updated successfully',
       data: settings
     });
   } catch (error) {
@@ -455,6 +497,7 @@ router.put('/users/:id/status', async (req, res) => {
 
     res.json({
       success: true,
+      message: 'User status updated successfully',
       data: user
     });
   } catch (error) {

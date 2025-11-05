@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useData } from "@/context/DataContext"
 
 export default function ClientFormModal({ isOpen, onClose, onSubmit }) {
   const [formData, setFormData] = useState({
@@ -9,17 +10,28 @@ export default function ClientFormModal({ isOpen, onClose, onSubmit }) {
     password: "",
     walletBalance: 50000,
   })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    onSubmit(formData)
-    // Reset form
-    setFormData({
-      name: "",
-      email: "",
-      password: "",
-      walletBalance: 50000,
-    })
+    setLoading(true)
+    setError("")
+    
+    try {
+      await onSubmit?.(formData)
+      // Reset form
+      setFormData({
+        name: "",
+        email: "",
+        password: "",
+        walletBalance: 50000,
+      })
+    } catch (err) {
+      setError(err.message || "Failed to create client")
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleChange = (e) => {
@@ -28,14 +40,21 @@ export default function ClientFormModal({ isOpen, onClose, onSubmit }) {
       ...prev,
       [name]: type === "number" ? parseFloat(value) : value,
     }))
+    setError("")
   }
 
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-slate-800 rounded-lg p-6 w-full max-w-md border border-slate-700">
         <h2 className="text-2xl font-bold text-white mb-4">Add New Client</h2>
+        
+        {error && (
+          <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-200 text-sm">
+            {error}
+          </div>
+        )}
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -105,15 +124,17 @@ export default function ClientFormModal({ isOpen, onClose, onSubmit }) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition"
+              disabled={loading}
+              className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition"
+              disabled={loading}
+              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition disabled:opacity-50"
             >
-              Create Client
+              {loading ? "Creating..." : "Create Client"}
             </button>
           </div>
         </form>
