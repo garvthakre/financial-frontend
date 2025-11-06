@@ -119,10 +119,10 @@ export default function TransactionModal({ isOpen, onClose, role }) {
         )}
         
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+          {/* <div>
+            {/* <label className="block text-sm font-medium text-slate-300 mb-2">
               Select Client *
-            </label>
+            </label> 
             <select
               name="clientId"
               value={formData.clientId}
@@ -137,12 +137,12 @@ export default function TransactionModal({ isOpen, onClose, role }) {
                 </option>
               ))}
             </select>
-          </div>
+          </div> */}
 
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+          {/* <div>
+            {/* <label className="block text-sm font-medium text-slate-300 mb-2">
               Select Branch *
-            </label>
+            </label> 
             <select
               name="branchId"
               value={formData.branchId}
@@ -157,7 +157,7 @@ export default function TransactionModal({ isOpen, onClose, role }) {
                 </option>
               ))}
             </select>
-          </div>
+          </div> */}
 
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">

@@ -15,6 +15,11 @@ export default function StaffSidebar() {
     router.push("/login")
   }
 
+  const handleBranchClick = (branch, string) => {
+    updateBranch(branch)
+    router.push("/staff/transactions")
+  }
+
   return (
     <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col">
       <div className="p-6 border-b border-slate-800">
@@ -30,13 +35,13 @@ export default function StaffSidebar() {
           <span>Dashboard</span>
         </Link>
 
-        <Link
+        {/* <Link
           href="/staff/transactions"
           className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 transition"
         >
           <span className="text-lg">💳</span>
           <span>Transactions</span>
-        </Link>
+        </Link> */}
 
         {/* Branch Switcher */}
         <div className="pt-4 border-t border-slate-800">
@@ -53,7 +58,7 @@ export default function StaffSidebar() {
               {user.branches.map((branch) => (
                 <button
                   key={branch}
-                  onClick={() => updateBranch(branch)}
+                  onClick={() => handleBranchClick(branch)}
                   className={`w-full text-left px-4 py-2 rounded-lg text-sm transition ${
                     user.currentBranch === branch ? "bg-blue-600 text-white" : "text-slate-400 hover:bg-slate-800"
                   }`}

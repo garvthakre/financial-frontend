@@ -52,7 +52,7 @@ export default function AdminDashboard({ data, loading }) {
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <Card className="bg-slate-900 border-slate-800">
+        {/* <Card className="bg-slate-900 border-slate-800">
           <CardHeader>
             <CardTitle className="text-white">7-Day Trend</CardTitle>
             <CardDescription>Daily credits, debits, and commission</CardDescription>
@@ -70,7 +70,7 @@ export default function AdminDashboard({ data, loading }) {
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
-        </Card>
+        </Card> */}
 
         <Card className="bg-slate-900 border-slate-800">
           <CardHeader>

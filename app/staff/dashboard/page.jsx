@@ -79,10 +79,10 @@ export default function StaffDashboardPage() {
         />
 
         {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <CreditsDebitsComparison />
           <TransactionVolumeChart />
-        </div>
+        </div> */}
 
         <StaffDashboard data={dashboardData} loading={loading} onAddTransaction={() => setShowModal(true)} />
       </div>

@@ -11,8 +11,11 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     // Check for stored user on mount
     const storedUser = localStorage.getItem("user")
-    if (storedUser) {
-      setUser(JSON.parse(storedUser))
+    const storedToken = localStorage.getItem("token")
+    
+    if (storedUser && storedToken) {
+      const userData = JSON.parse(storedUser)
+      setUser({ ...userData, token: storedToken })
     }
     setLoading(false)
   }, [])
@@ -20,22 +23,30 @@ export function AuthProvider({ children }) {
   const login = (userData) => {
     setUser(userData)
     localStorage.setItem("user", JSON.stringify(userData))
+    if (userData.token) {
+      localStorage.setItem("token", userData.token)
+    }
   }
 
   const logout = () => {
     setUser(null)
     localStorage.removeItem("user")
+    localStorage.removeItem("token")
   }
 
   const updateBranch = (branchId) => {
-    if (user && user.branches.includes(branchId)) {
+    if (user && user.branches && user.branches.includes(branchId)) {
       const updated = { ...user, currentBranch: branchId }
       setUser(updated)
       localStorage.setItem("user", JSON.stringify(updated))
     }
   }
 
-  return <AuthContext.Provider value={{ user, login, logout, loading, updateBranch }}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={{ user, login, logout, loading, updateBranch }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {

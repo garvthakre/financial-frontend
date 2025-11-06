@@ -17,7 +17,7 @@ export default function StaffDashboard({ data, loading, onAddTransaction }) {
 
   return (
     <div className="p-8 bg-slate-950 min-h-screen">
-      <div className="mb-8 flex justify-between items-start">
+      {/* <div className="mb-8 flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">Dashboard</h1>
           <p className="text-slate-400">
@@ -27,10 +27,10 @@ export default function StaffDashboard({ data, loading, onAddTransaction }) {
         <Button onClick={onAddTransaction} className="bg-blue-600 hover:bg-blue-700">
           + Add Transaction
         </Button>
-      </div>
+      </div> */}
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+      {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <StatCard
           title="Today's Credits"
           value={data?.totalCredits ? `$${(data.totalCredits / 1000).toFixed(1)}K` : "$0"}
@@ -49,7 +49,7 @@ export default function StaffDashboard({ data, loading, onAddTransaction }) {
           change="+12.1%"
           icon="💰"
         />
-      </div>
+      </div> */}
 
       {/* Activity Chart */}
       <Card className="bg-slate-900 border-slate-800 mb-6">

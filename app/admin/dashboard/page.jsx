@@ -32,8 +32,8 @@ export default function AdminDashboardPage() {
         <p className="text-slate-400">System-wide financial overview and analytics</p>
       </div>
 
-      {/* Statistics Overview */}
-      <StatisticsOverview
+       
+      {/* <StatisticsOverview
         stats={[
           {
             title: "Total Credits",
@@ -64,13 +64,13 @@ export default function AdminDashboardPage() {
             color: "blue",
           },
         ]}
-      />
+      /> */}
 
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <CommissionTrendChart />
+        {/* <CommissionTrendChart />
         <BranchPerformanceChart />
-        <CreditsDebitsComparison />
+        <CreditsDebitsComparison /> */}
         <div className="lg:col-span-2">
           <AdminDashboard data={dashboardData} loading={loading} />
         </div>
