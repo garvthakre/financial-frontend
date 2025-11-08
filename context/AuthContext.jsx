@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect } from "react"
+import api from "@/app/lib/api"
 
 const AuthContext = createContext()
 
@@ -14,17 +15,41 @@ export function AuthProvider({ children }) {
     const storedToken = localStorage.getItem("token")
     
     if (storedUser && storedToken) {
-      const userData = JSON.parse(storedUser)
-      setUser({ ...userData, token: storedToken })
+      try {
+        const userData = JSON.parse(storedUser)
+        setUser(userData)
+      } catch (error) {
+        console.error('Error parsing stored user:', error)
+        localStorage.removeItem("user")
+        localStorage.removeItem("token")
+      }
     }
     setLoading(false)
   }, [])
 
-  const login = (userData) => {
-    setUser(userData)
-    localStorage.setItem("user", JSON.stringify(userData))
-    if (userData.token) {
-      localStorage.setItem("token", userData.token)
+  const login = async (credentials) => {
+    try {
+      const response = await api.login(credentials)
+      
+      if (response.success && response.data) {
+        const userData = {
+          _id: response.data._id,
+          name: response.data.name,
+          email: response.data.email,
+          role: response.data.role,
+          walletBalance: response.data.walletBalance,
+          branches: response.data.branches,
+          clientId: response.data.clientId
+        }
+        
+        setUser(userData)
+        return { success: true }
+      }
+      
+      return { success: false, message: response.message || 'Login failed' }
+    } catch (error) {
+      console.error('Login error:', error)
+      return { success: false, message: error.message || 'Login failed' }
     }
   }
 
@@ -42,13 +67,35 @@ export function AuthProvider({ children }) {
     }
   }
 
+  // Mock login for demo purposes - remove this in production
+  const mockLogin = (mockUser) => {
+    // This is only for demo purposes when backend is not available
+    const userData = {
+      _id: mockUser.id,
+      name: mockUser.name,
+      email: mockUser.email,
+      role: mockUser.role,
+      walletBalance: 50000,
+      branches: mockUser.branches || [],
+      currentBranch: mockUser.currentBranch || null
+    }
+    
+    setUser(userData)
+    localStorage.setItem("user", JSON.stringify(userData))
+    localStorage.setItem("token", "mock-token")
+  }
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, updateBranch }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, updateBranch, mockLogin }}>
       {children}
     </AuthContext.Provider>
   )
 }
 
 export function useAuth() {
-  return useContext(AuthContext)
+  const context = useContext(AuthContext)
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return context
 }

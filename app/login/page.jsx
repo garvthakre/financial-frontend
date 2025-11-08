@@ -3,42 +3,56 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 
 export default function EnhancedLoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [role, setRole] = useState("staff")
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
-  const { login } = useAuth()
+  const { login, mockLogin } = useAuth()
 
   const handleLogin = async (e) => {
     e.preventDefault()
     setLoading(true)
+    setError("")
 
-    // Mock authentication
-    setTimeout(() => {
+    try {
+      // Try real authentication first
+      const result = await login({ email, password })
+      
+      if (result.success) {
+        // Get user from localStorage to determine role
+        const userData = JSON.parse(localStorage.getItem('user'))
+        const routes = {
+          admin: "/admin/dashboard",
+          staff: "/staff/dashboard",
+          client: "/client/dashboard"
+        }
+        router.push(routes[userData.role])
+      } else {
+        setError(result.message || 'Login failed')
+      }
+    } catch (error) {
+      console.error('Login error:', error)
+      setError('Login failed. Using demo mode.')
+      
+      // Fallback to mock login for demo
       const mockUser = {
         id: "1",
         email,
         name: email.split("@")[0],
-        role,
-        branches: role !== "client" ? ["branch-1", "branch-2"] : [],
-        currentBranch: role !== "client" ? "branch-1" : null,
+        role: "staff", // Default to staff for demo
+        branches: ["branch-1", "branch-2"],
+        currentBranch: "branch-1",
       }
 
-      login(mockUser)
-      const routes = {
-        admin: "/admin/dashboard",
-        staff: "/staff/dashboard",
-        client: "/client/dashboard"
-      }
-      router.push(routes[role])
+      mockLogin(mockUser)
+      router.push("/staff/dashboard")
+    } finally {
       setLoading(false)
-    }, 1500)
+    }
   }
 
   return (
@@ -47,7 +61,6 @@ export default function EnhancedLoginPage() {
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-blue-600/20 via-purple-600/20 to-transparent rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-600/20 via-blue-600/20 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-violet-600/10 to-fuchsia-600/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '0.5s' }}></div>
       </div>
 
       {/* Grid Pattern Overlay */}
@@ -74,27 +87,13 @@ export default function EnhancedLoginPage() {
           
           {/* Card */}
           <div className="relative backdrop-blur-xl bg-slate-900/80 border border-slate-800/50 rounded-2xl shadow-2xl p-8">
-            <div className="space-y-6">
-              {/* Role Selector */}
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-3">Select Role</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {['admin', 'staff', 'client'].map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setRole(r)}
-                      className={`py-3 px-4 rounded-xl font-semibold text-sm transition-all duration-300 ${
-                        role === r
-                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/50 scale-105'
-                          : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-slate-300'
-                      }`}
-                    >
-                      {r.charAt(0).toUpperCase() + r.slice(1)}
-                    </button>
-                  ))}
+            <form onSubmit={handleLogin} className="space-y-6">
+              {/* Error Message */}
+              {error && (
+                <div className="p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-200 text-sm">
+                  {error}
                 </div>
-              </div>
+              )}
 
               {/* Email Input */}
               <div>
@@ -110,6 +109,7 @@ export default function EnhancedLoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="admin@example.com"
+                    required
                     className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300"
                   />
                 </div>
@@ -129,6 +129,7 @@ export default function EnhancedLoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
+                    required
                     className="w-full pl-10 pr-12 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300"
                   />
                   <button
@@ -150,19 +151,9 @@ export default function EnhancedLoginPage() {
                 </div>
               </div>
 
-              {/* Remember Me & Forgot Password */}
-              <div className="flex items-center justify-between text-sm">
-                <label className="flex items-center cursor-pointer group/check">
-                  <input type="checkbox" className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-900 transition-all" />
-                  <span className="ml-2 text-slate-400 group-hover/check:text-slate-300 transition-colors">Remember me</span>
-                </label>
-                <button type="button" className="text-blue-400 hover:text-blue-300 transition-colors">Forgot password?</button>
-              </div>
-
               {/* Submit Button */}
               <button
-                type="button"
-                onClick={handleLogin}
+                type="submit"
                 disabled={loading}
                 className="relative w-full group/btn overflow-hidden"
               >
@@ -187,7 +178,7 @@ export default function EnhancedLoginPage() {
                   )}
                 </div>
               </button>
-            </div>
+            </form>
 
             {/* Demo Credentials */}
             <div className="mt-6 p-4 bg-gradient-to-r from-slate-800/50 to-slate-800/30 border border-slate-700/50 rounded-xl backdrop-blur-sm">
@@ -199,25 +190,11 @@ export default function EnhancedLoginPage() {
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-slate-300 mb-1">Demo Credentials</p>
-                  <p className="text-xs text-slate-400">Email: admin@demo.com</p>
-                  <p className="text-xs text-slate-400">Password: demo123</p>
+                  <p className="text-xs text-slate-400">Any email and password will work in demo mode</p>
+                  <p className="text-xs text-slate-500 mt-1">Backend API: {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}</p>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="text-center mt-8 space-y-2">
-          <p className="text-sm text-slate-400">
-            Don't have an account? <button type="button" className="text-blue-400 hover:text-blue-300 font-semibold transition-colors">Sign up</button>
-          </p>
-          <div className="flex items-center justify-center gap-4 text-xs text-slate-500">
-            <button type="button" className="hover:text-slate-300 transition-colors">Terms</button>
-            <span>•</span>
-            <button type="button" className="hover:text-slate-300 transition-colors">Privacy</button>
-            <span>•</span>
-            <button type="button" className="hover:text-slate-300 transition-colors">Help</button>
           </div>
         </div>
       </div>
