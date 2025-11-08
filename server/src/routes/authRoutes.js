@@ -18,38 +18,38 @@ const generateToken = (id) => {
 // @access  Public
 router.post('/register', [
   body('name').notEmpty().trim().withMessage('Name is required'),
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('phone').matches(/^[0-9]{10}$/).withMessage('Valid 10-digit phone number is required'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   body('role').equals('admin').withMessage('Only admin registration allowed')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
     }
 
-    const { name, email, password, role } = req.body;
+    const { name, phone, password, role } = req.body;
 
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ phone });
     if (userExists) {
-      return res.status(400).json({ success: false, message: 'Email already registered' });
+      return res.status(400).json({ success: false, message: 'Phone number already registered' });
     }
 
     const user = await User.create({
       name,
-      email,
+      phone,
       password,
       role: 'admin'
     });
 
-    logger.info(`Admin registered: ${user.email}`);
+    logger.info(`Admin registered: ${user.phone}`);
 
     res.status(201).json({
       success: true,
       data: {
         _id: user._id,
         name: user.name,
-        email: user.email,
+        phone: user.phone,
         role: user.role,
         token: generateToken(user._id)
       }
@@ -64,18 +64,18 @@ router.post('/register', [
 // @desc    Login user
 // @access  Public
 router.post('/login', authLimiter, [
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('phone').matches(/^[0-9]{10}$/).withMessage('Valid 10-digit phone number is required'),
   body('password').notEmpty().withMessage('Password is required')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
     }
 
-    const { email, password } = req.body;
+    const { phone, password } = req.body;
 
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ phone }).select('+password');
 
     if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
@@ -90,14 +90,14 @@ router.post('/login', authLimiter, [
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    logger.info(`User logged in: ${user.email}`);
+    logger.info(`User logged in: ${user.phone}`);
 
     res.json({
       success: true,
       data: {
         _id: user._id,
         name: user.name,
-        email: user.email,
+        phone: user.phone,
         role: user.role,
         walletBalance: user.walletBalance,
         branches: user.branches,

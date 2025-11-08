@@ -20,7 +20,7 @@ router.use(protect, authorize('admin'));
 // @access  Admin only
 router.post('/clients', [
   body('name').notEmpty().trim().withMessage('Name is required'),
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('phone').matches(/^[0-9]{10}$/).withMessage('Valid 10-digit phone number is required'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   body('walletBalance').optional().isFloat({ min: 0 }).withMessage('Wallet balance must be positive')
 ], async (req, res) => {
@@ -34,16 +34,16 @@ router.post('/clients', [
       });
     }
 
-    const { name, email, password, walletBalance } = req.body;
+    const { name, phone, password, walletBalance } = req.body;
 
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ phone });
     if (userExists) {
-      return res.status(400).json({ success: false, message: 'Email already in use' });
+      return res.status(400).json({ success: false, message: 'Phone number already in use' });
     }
 
     const client = await User.create({
       name,
-      email,
+      phone,
       password,
       role: 'client',
       walletBalance: walletBalance || 50000,
@@ -51,9 +51,9 @@ router.post('/clients', [
     });
 
     await createAuditLog(req.user._id, 'create_client', 'user', client._id, 
-      { name, email, walletBalance: client.walletBalance }, req);
+      { name, phone, walletBalance: client.walletBalance }, req);
 
-    logger.info(`Client created: ${client.email} by admin ${req.user.email}`);
+    logger.info(`Client created: ${client.phone} by admin ${req.user.phone}`);
 
     // Return client without password
     const clientData = await User.findById(client._id).select('-password');
@@ -144,7 +144,7 @@ router.post('/branches', [
 // @access  Admin only
 router.post('/staff', [
   body('name').notEmpty().trim().withMessage('Name is required'),
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('phone').matches(/^[0-9]{10}$/).withMessage('Valid 10-digit phone number is required'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   body('branches').isArray().withMessage('Branches must be an array'),
   body('clientId').isMongoId().withMessage('Valid client ID is required')
@@ -159,11 +159,11 @@ router.post('/staff', [
       });
     }
 
-    const { name, email, password, branches, clientId } = req.body;
+    const { name, phone, password, branches, clientId } = req.body;
 
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ phone });
     if (userExists) {
-      return res.status(400).json({ success: false, message: 'Email already in use' });
+      return res.status(400).json({ success: false, message: 'Phone number already in use' });
     }
 
     // Validate client exists
@@ -182,7 +182,7 @@ router.post('/staff', [
 
     const staff = await User.create({
       name,
-      email,
+      phone,
       password,
       role: 'staff',
       branches: branches || [],
@@ -202,12 +202,12 @@ router.post('/staff', [
     const populatedStaff = await User.findById(staff._id)
       .select('-password')
       .populate('branches', 'name code')
-      .populate('clientId', 'name email');
+      .populate('clientId', 'name phone');
 
     await createAuditLog(req.user._id, 'create_staff', 'user', staff._id, 
-      { name, email, branches }, req);
+      { name, phone, branches }, req);
 
-    logger.info(`Staff created: ${staff.email} by admin ${req.user.email}`);
+    logger.info(`Staff created: ${staff.phone} by admin ${req.user.phone}`);
 
     res.status(201).json({
       success: true,
