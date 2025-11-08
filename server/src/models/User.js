@@ -7,13 +7,12 @@ const userSchema = new mongoose.Schema({
     required: [true, 'Name is required'],
     trim: true
   },
-  email: {
+  phone: {
     type: String,
-    required: [true, 'Email is required'],
+    required: [true, 'Phone number is required'],
     unique: true,
-    lowercase: true,
     trim: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please provide a valid email']
+    match: [/^[0-9]{10}$/, 'Please provide a valid 10-digit phone number']
   },
   password: {
     type: String,
@@ -59,6 +58,7 @@ userSchema.pre('save', async function(next) {
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });
+
 userSchema.methods.matchPassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };

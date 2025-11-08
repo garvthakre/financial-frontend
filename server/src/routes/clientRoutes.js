@@ -40,7 +40,7 @@ router.get('/dashboard', async (req, res) => {
 router.get('/branches', async (req, res) => {
   try {
     const branches = await Branch.find({ clientId: req.user._id, isActive: true })
-      .populate('staffMembers', 'name email')
+      .populate('staffMembers', 'name phone')
       .sort({ createdAt: -1 });
     
     res.json({
@@ -104,7 +104,7 @@ router.get('/transactions', async (req, res) => {
           balanceAfter: 1,
           createdAt: 1,
           'staff.name': 1,
-          'staff.email': 1,
+          'staff.phone': 1,
           'branch.name': 1,
           'branch.code': 1
         }
@@ -148,4 +148,3 @@ router.get('/wallet', async (req, res) => {
 });
 
 module.exports = router;
-
