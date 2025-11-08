@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 
 export default function EnhancedLoginPage() {
-  const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -20,7 +20,7 @@ export default function EnhancedLoginPage() {
 
     try {
       // Try real authentication first
-      const result = await login({ email, password })
+      const result = await login({ phone, password })
       
       if (result.success) {
         // Get user from localStorage to determine role
@@ -41,8 +41,8 @@ export default function EnhancedLoginPage() {
       // Fallback to mock login for demo
       const mockUser = {
         id: "1",
-        email,
-        name: email.split("@")[0],
+        phone,
+        name: phone,
         role: "staff", // Default to staff for demo
         branches: ["branch-1", "branch-2"],
         currentBranch: "branch-1",
@@ -95,24 +95,27 @@ export default function EnhancedLoginPage() {
                 </div>
               )}
 
-              {/* Email Input */}
+              {/* Phone Input */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Email Address</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Phone Number</label>
                 <div className="relative group/input">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg className="w-5 h-5 text-slate-500 group-focus-within/input:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                     </svg>
                   </div>
                   <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@example.com"
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    placeholder="9876543210"
                     required
+                    maxLength="10"
+                    pattern="[0-9]{10}"
                     className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300"
                   />
                 </div>
+                <p className="text-xs text-slate-400 mt-1">Enter 10-digit phone number</p>
               </div>
 
               {/* Password Input */}
@@ -190,7 +193,7 @@ export default function EnhancedLoginPage() {
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-slate-300 mb-1">Demo Credentials</p>
-                  <p className="text-xs text-slate-400">Any email and password will work in demo mode</p>
+                  <p className="text-xs text-slate-400">Any 10-digit phone number and password will work in demo mode</p>
                   <p className="text-xs text-slate-500 mt-1">Backend API: {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}</p>
                 </div>
               </div>

@@ -1,12 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { useData } from "@/context/DataContext"
 
 export default function ClientFormModal({ isOpen, onClose, onSubmit }) {
   const [formData, setFormData] = useState({
     name: "",
-    email: "",
+    phone: "",
     password: "",
     walletBalance: 50000,
   })
@@ -15,6 +14,13 @@ export default function ClientFormModal({ isOpen, onClose, onSubmit }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    // Validate phone number
+    if (!/^[0-9]{10}$/.test(formData.phone)) {
+      setError("Please enter a valid 10-digit phone number")
+      return
+    }
+    
     setLoading(true)
     setError("")
     
@@ -23,7 +29,7 @@ export default function ClientFormModal({ isOpen, onClose, onSubmit }) {
       // Reset form
       setFormData({
         name: "",
-        email: "",
+        phone: "",
         password: "",
         walletBalance: 50000,
       })
@@ -36,10 +42,20 @@ export default function ClientFormModal({ isOpen, onClose, onSubmit }) {
 
   const handleChange = (e) => {
     const { name, value, type } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "number" ? parseFloat(value) : value,
-    }))
+    
+    // Only allow digits for phone number
+    if (name === 'phone') {
+      const phoneValue = value.replace(/\D/g, '').slice(0, 10)
+      setFormData((prev) => ({
+        ...prev,
+        [name]: phoneValue
+      }))
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: type === "number" ? parseFloat(value) : value,
+      }))
+    }
     setError("")
   }
 
@@ -74,17 +90,20 @@ export default function ClientFormModal({ isOpen, onClose, onSubmit }) {
 
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Email Address *
+              Phone Number *
             </label>
             <input
-              type="email"
-              name="email"
-              value={formData.email}
+              type="tel"
+              name="phone"
+              value={formData.phone}
               onChange={handleChange}
               required
+              maxLength="10"
+              pattern="[0-9]{10}"
               className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="client@example.com"
+              placeholder="9876543210"
             />
+            <p className="text-xs text-slate-400 mt-1">Enter 10-digit phone number</p>
           </div>
 
           <div>

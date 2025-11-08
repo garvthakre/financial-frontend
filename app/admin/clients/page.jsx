@@ -26,7 +26,7 @@ export default function ClientsPage() {
         clients.filter(
           (c) =>
             c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            c.email.toLowerCase().includes(searchQuery.toLowerCase())
+            c.phone.toLowerCase().includes(searchQuery.toLowerCase())
         ),
       )
     } else {
@@ -96,7 +96,7 @@ export default function ClientsPage() {
                 <thead>
                   <tr className="border-b border-slate-700">
                     <th className="text-left py-3 px-4 text-slate-400">Name</th>
-                    <th className="text-left py-3 px-4 text-slate-400">Email</th>
+                    <th className="text-left py-3 px-4 text-slate-400">Phone</th>
                     <th className="text-left py-3 px-4 text-slate-400">Wallet Balance</th>
                     <th className="text-left py-3 px-4 text-slate-400">Status</th>
                     <th className="text-left py-3 px-4 text-slate-400">Created</th>
@@ -106,7 +106,7 @@ export default function ClientsPage() {
                   {filteredClients.map((client) => (
                     <tr key={client._id} className="border-b border-slate-800 hover:bg-slate-800 transition">
                       <td className="py-4 px-4 text-slate-300 font-semibold">{client.name}</td>
-                      <td className="py-4 px-4 text-slate-400">{client.email}</td>
+                      <td className="py-4 px-4 text-slate-400">{client.phone}</td>
                       <td className="py-4 px-4 text-green-400 font-semibold">
                         ₹{client.walletBalance?.toLocaleString() || '0'}
                       </td>
