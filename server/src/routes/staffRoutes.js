@@ -18,9 +18,10 @@ router.get('/dashboard', async (req, res) => {
   try {
     const { branchId } = req.query;
     
+    // FIX: Added 'new' keyword
     const dashboard = await dashboardService.getStaffDashboard(
-      mongoose.Types.ObjectId(req.user._id),
-      branchId ? mongoose.Types.ObjectId(branchId) : null
+      new mongoose.Types.ObjectId(req.user._id),
+      branchId ? new mongoose.Types.ObjectId(branchId) : null
     );
     
     res.json({

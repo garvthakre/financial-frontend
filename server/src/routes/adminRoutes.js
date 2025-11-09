@@ -1,4 +1,4 @@
-// server/src/routes/adminRoutes.js - FIXED VERSION
+// server/src/routes/adminRoutes.js - FIXED ObjectId issue
 const express = require('express');
 const mongoose = require('mongoose');
 const { body, validationResult } = require('express-validator');
@@ -17,8 +17,6 @@ const router = express.Router();
 router.use(protect, authorize('admin'));
 
 // @route   POST /api/admin/clients
-// @desc    Create new client
-// @access  Admin only
 router.post('/clients', [
   body('name').notEmpty().trim().withMessage('Name is required'),
   body('phone').matches(/^[0-9]{10}$/).withMessage('Valid 10-digit phone number is required'),
@@ -70,8 +68,6 @@ router.post('/clients', [
 });
 
 // @route   POST /api/admin/branches
-// @desc    Create new branch
-// @access  Admin only
 router.post('/branches', [
   body('name').notEmpty().trim().withMessage('Branch name is required'),
   body('code').notEmpty().trim().withMessage('Branch code is required'),
@@ -138,8 +134,6 @@ router.post('/branches', [
 });
 
 // @route   POST /api/admin/staff
-// @desc    Create new staff member
-// @access  Admin only
 router.post('/staff', [
   body('name').notEmpty().trim().withMessage('Name is required'),
   body('phone').matches(/^[0-9]{10}$/).withMessage('Valid 10-digit phone number is required'),
@@ -220,7 +214,7 @@ router.get('/dashboard', async (req, res) => {
     const { clientId, branchId } = req.query;
     
     const filters = {};
-    // FIX: Use new keyword with ObjectId
+    // FIX: Added 'new' keyword
     if (clientId && mongoose.Types.ObjectId.isValid(clientId)) {
       filters.clientId = new mongoose.Types.ObjectId(clientId);
     }
@@ -304,7 +298,7 @@ router.get('/transactions', async (req, res) => {
 
     const query = { status: 'completed' };
     
-    // FIX: Use new keyword with ObjectId
+    // FIX: Added 'new' keyword
     if (clientId && mongoose.Types.ObjectId.isValid(clientId)) {
       query.clientId = new mongoose.Types.ObjectId(clientId);
     }
@@ -487,3 +481,7 @@ router.put('/users/:id/status', async (req, res) => {
 });
 
 module.exports = router;
+
+// Also fix server/src/routes/staffRoutes.js:
+// Change line: const staffObjectId = mongoose.Types.ObjectId(req.user._id)
+// To: const staffObjectId = new mongoose.Types.ObjectId(req.user._id)
