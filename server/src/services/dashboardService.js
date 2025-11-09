@@ -1,3 +1,4 @@
+// server/src/services/dashboardService.js - FIXED VERSION
 const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
 const logger = require('../utils/logger');
@@ -48,10 +49,15 @@ class DashboardService {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
+      // FIX: Ensure clientId is already an ObjectId or create new one
+      const clientObjectId = clientId instanceof mongoose.Types.ObjectId 
+        ? clientId 
+        : new mongoose.Types.ObjectId(clientId);
+
       const summary = await Transaction.aggregate([
         {
           $match: {
-            clientId: mongoose.Types.ObjectId(clientId),
+            clientId: clientObjectId,
             createdAt: { $gte: today },
             status: 'completed'
           }
@@ -88,14 +94,22 @@ class DashboardService {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
+      // FIX: Ensure IDs are ObjectId instances
+      const staffObjectId = staffId instanceof mongoose.Types.ObjectId 
+        ? staffId 
+        : new mongoose.Types.ObjectId(staffId);
+
       const matchStage = {
-        staffId: mongoose.Types.ObjectId(staffId),
+        staffId: staffObjectId,
         createdAt: { $gte: today },
         status: 'completed'
       };
 
       if (branchId) {
-        matchStage.branchId = mongoose.Types.ObjectId(branchId);
+        const branchObjectId = branchId instanceof mongoose.Types.ObjectId 
+          ? branchId 
+          : new mongoose.Types.ObjectId(branchId);
+        matchStage.branchId = branchObjectId;
       }
 
       const summary = await Transaction.aggregate([

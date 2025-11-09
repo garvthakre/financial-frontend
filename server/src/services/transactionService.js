@@ -1,3 +1,4 @@
+// server/src/services/transactionService.js - FIXED VERSION
 const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');

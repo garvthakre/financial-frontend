@@ -1,3 +1,4 @@
+// server/src/routes/adminRoutes.js - FIXED VERSION
 const express = require('express');
 const mongoose = require('mongoose');
 const { body, validationResult } = require('express-validator');
@@ -55,7 +56,6 @@ router.post('/clients', [
 
     logger.info(`Client created: ${client.phone} by admin ${req.user.phone}`);
 
-    // Return client without password
     const clientData = await User.findById(client._id).select('-password');
 
     res.status(201).json({
@@ -220,11 +220,12 @@ router.get('/dashboard', async (req, res) => {
     const { clientId, branchId } = req.query;
     
     const filters = {};
+    // FIX: Use new keyword with ObjectId
     if (clientId && mongoose.Types.ObjectId.isValid(clientId)) {
-      filters.clientId = mongoose.Types.ObjectId(clientId);
+      filters.clientId = new mongoose.Types.ObjectId(clientId);
     }
     if (branchId && mongoose.Types.ObjectId.isValid(branchId)) {
-      filters.branchId = mongoose.Types.ObjectId(branchId);
+      filters.branchId = new mongoose.Types.ObjectId(branchId);
     }
 
     const dashboard = await dashboardService.getAdminDashboard(filters);
@@ -303,11 +304,12 @@ router.get('/transactions', async (req, res) => {
 
     const query = { status: 'completed' };
     
+    // FIX: Use new keyword with ObjectId
     if (clientId && mongoose.Types.ObjectId.isValid(clientId)) {
-      query.clientId = mongoose.Types.ObjectId(clientId);
+      query.clientId = new mongoose.Types.ObjectId(clientId);
     }
     if (branchId && mongoose.Types.ObjectId.isValid(branchId)) {
-      query.branchId = mongoose.Types.ObjectId(branchId);
+      query.branchId = new mongoose.Types.ObjectId(branchId);
     }
     if (type) query.type = type;
     if (startDate || endDate) {

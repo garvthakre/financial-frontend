@@ -1,3 +1,4 @@
+// server/src/routes/clientRoutes.js - FIXED VERSION
 const express = require('express');
 const mongoose = require('mongoose');
 const User = require('../models/User');
@@ -17,8 +18,9 @@ router.use(protect, authorize('client'));
 // @access  Client only
 router.get('/dashboard', async (req, res) => {
   try {
+    // FIX: Use new keyword with ObjectId
     const dashboard = await dashboardService.getClientDashboard(
-      mongoose.Types.ObjectId(req.user._id)
+      new mongoose.Types.ObjectId(req.user._id)
     );
     
     res.json({
