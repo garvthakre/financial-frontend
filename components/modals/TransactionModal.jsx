@@ -5,7 +5,7 @@ import { useData } from "@/context/DataContext"
 import { useAuth } from "@/context/AuthContext"
 
 export default function TransactionModal({ isOpen, onClose, role }) {
-  const { clients, branches, fetchClients, fetchBranches, addTransaction } = useData()
+  const { clients, branches, fetchClients, fetchBranches, addTransaction, fetchDashboardData, fetchTransactions } = useData()
   const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -70,6 +70,19 @@ export default function TransactionModal({ isOpen, onClose, role }) {
 
       if (result.success) {
         setSuccess("Transaction created successfully!")
+        
+        // **FIX: Refresh dashboard and transactions**
+        if (role === 'staff') {
+       // Now uses Promise.all for parallel data fetching
+await Promise.all([
+  fetchDashboardData("staff", user.currentBranch),
+  fetchTransactions("staff", user.currentBranch, 50)
+])
+        } else if (role === 'admin') {
+          await fetchDashboardData("admin")
+          await fetchTransactions("admin", null, 100)
+        }
+        
         setTimeout(() => {
           onClose()
           // Reset form

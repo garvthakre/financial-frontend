@@ -60,8 +60,25 @@ export function DataProvider({ children }) {
       }
 
       if (response?.success) {
+        // Transform backend data to match frontend expectations
         const txnData = response.data.docs || response.data || []
-        setTransactions(txnData)
+        const transformedData = txnData.map(txn => ({
+          id: txn._id,
+          utrId: txn.utrId,
+          type: txn.type,
+          amount: txn.amount,
+          commission: txn.commission,
+          finalAmount: txn.finalAmount,
+          remark: txn.remark || '',
+          date: txn.createdAt,
+          balanceBefore: txn.balanceBefore,
+          balanceAfter: txn.balanceAfter,
+          status: txn.status,
+          client: txn.client,
+          staff: txn.staff,
+          branch: txn.branch
+        }))
+        setTransactions(transformedData)
       }
     } catch (error) {
       console.error('Failed to fetch transactions:', error)
