@@ -17,6 +17,7 @@ export function AuthProvider({ children }) {
     if (storedUser && storedToken) {
       try {
         const userData = JSON.parse(storedUser)
+        console.log("Restored user from storage:", userData)
         setUser(userData)
       } catch (error) {
         console.error('Error parsing stored user:', error)
@@ -32,16 +33,20 @@ export function AuthProvider({ children }) {
       const response = await api.login(credentials)
       
       if (response.success && response.data) {
+        const branches = response.data.branches || []
         const userData = {
           _id: response.data._id,
           name: response.data.name,
-          email: response.data.email,
+          phone: response.data.phone,
           role: response.data.role,
           walletBalance: response.data.walletBalance,
-          branches: response.data.branches,
-          clientId: response.data.clientId
+          branches: branches,
+          clientId: response.data.clientId || null,
+          // Set first branch as current branch by default
+          currentBranch: branches.length > 0 ? branches[0] : null
         }
         
+        console.log("Login successful, user data:", userData)
         setUser(userData)
         return { success: true }
       }
@@ -73,13 +78,15 @@ export function AuthProvider({ children }) {
     const userData = {
       _id: mockUser.id,
       name: mockUser.name,
-      email: mockUser.email,
+      phone: mockUser.phone,
       role: mockUser.role,
       walletBalance: 50000,
       branches: mockUser.branches || [],
+      clientId: mockUser.clientId || null,
       currentBranch: mockUser.currentBranch || null
     }
     
+    console.log("Mock login with data:", userData)
     setUser(userData)
     localStorage.setItem("user", JSON.stringify(userData))
     localStorage.setItem("token", "mock-token")

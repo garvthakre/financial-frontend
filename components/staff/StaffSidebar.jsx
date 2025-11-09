@@ -15,9 +15,9 @@ export default function StaffSidebar() {
     router.push("/login")
   }
 
-  const handleBranchClick = (branch, string) => {
-    updateBranch(branch)
-    router.push("/staff/transactions")
+  const handleBranchClick = (branchId) => {
+    console.log("Switching to branch:", branchId)
+    updateBranch(branchId)
   }
 
   return (
@@ -35,14 +35,6 @@ export default function StaffSidebar() {
           <span>Dashboard</span>
         </Link>
 
-        {/* <Link
-          href="/staff/transactions"
-          className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 transition"
-        >
-          <span className="text-lg">💳</span>
-          <span>Transactions</span>
-        </Link> */}
-
         {/* Branch Switcher */}
         <div className="pt-4 border-t border-slate-800">
           <button
@@ -53,19 +45,27 @@ export default function StaffSidebar() {
             <span>{expandBranches ? "▼" : "▶"}</span>
           </button>
 
-          {expandBranches && user?.branches && (
+          {expandBranches && user?.branches && user.branches.length > 0 && (
             <div className="mt-2 space-y-1">
-              {user.branches.map((branch) => (
+              {user.branches.map((branchId) => (
                 <button
-                  key={branch}
-                  onClick={() => handleBranchClick(branch)}
+                  key={branchId}
+                  onClick={() => handleBranchClick(branchId)}
                   className={`w-full text-left px-4 py-2 rounded-lg text-sm transition ${
-                    user.currentBranch === branch ? "bg-blue-600 text-white" : "text-slate-400 hover:bg-slate-800"
+                    user.currentBranch === branchId 
+                      ? "bg-blue-600 text-white" 
+                      : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
                   }`}
                 >
-                  {branch}
+                  {branchId}
                 </button>
               ))}
+            </div>
+          )}
+          
+          {(!user?.branches || user.branches.length === 0) && expandBranches && (
+            <div className="mt-2 px-4 py-2 text-xs text-slate-500">
+              No branches assigned
             </div>
           )}
         </div>

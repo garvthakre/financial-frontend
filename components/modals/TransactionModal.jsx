@@ -20,15 +20,44 @@ export default function TransactionModal({ isOpen, onClose, role }) {
     remark: "",
   })
 
+  // Initialize form data with user's client and current branch
   useEffect(() => {
-    if (isOpen) {
-      if (clients.length === 0) fetchClients()
-      if (branches.length === 0) fetchBranches()
+    if (isOpen && user) {
+      const clientId = user.clientId?._id || user.clientId || ""
+      const branchId = user.currentBranch || user.branches?.[0] || ""
+      
+      setFormData(prev => ({
+        ...prev,
+        clientId,
+        branchId
+      }))
     }
-  }, [isOpen, clients.length, branches.length, fetchClients, fetchBranches])
+  }, [isOpen, user, user?.currentBranch])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    // Validate required fields
+    if (!formData.clientId) {
+      setError("Client information is missing. Please contact administrator.")
+      return
+    }
+    
+    if (!formData.branchId) {
+      setError("Branch information is missing. Please select a branch or contact administrator.")
+      return
+    }
+    
+    if (!formData.amount || parseFloat(formData.amount) <= 0) {
+      setError("Please enter a valid amount greater than 0")
+      return
+    }
+    
+    if (!formData.utrId || formData.utrId.trim() === "") {
+      setError("UTR ID is required")
+      return
+    }
+    
     setLoading(true)
     setError("")
     setSuccess("")
@@ -45,8 +74,8 @@ export default function TransactionModal({ isOpen, onClose, role }) {
           onClose()
           // Reset form
           setFormData({
-            clientId: "",
-            branchId: "",
+            clientId: user?.clientId?._id || user?.clientId || "",
+            branchId: user?.branches?.[0]?._id || user?.branches?.[0] || "",
             type: "credit",
             amount: "",
             utrId: "",
@@ -58,7 +87,8 @@ export default function TransactionModal({ isOpen, onClose, role }) {
         setError(result.message || "Failed to create transaction")
       }
     } catch (err) {
-      setError(err.message || "An error occurred")
+      console.error("Transaction error:", err)
+      setError(err.message || "An error occurred while processing the transaction")
     } finally {
       setLoading(false)
     }
@@ -86,13 +116,13 @@ export default function TransactionModal({ isOpen, onClose, role }) {
       return {
         commission,
         finalAmount: amount - commission,
-        display: `Client receives: ₹${(amount - commission).toFixed(2)} (₹${amount} - ₹${commission.toFixed(2)} fee)`
+        display: `Client receives: ₹${(amount - commission).toFixed(2)} (₹${amount.toFixed(2)} - ₹${commission.toFixed(2)} fee)`
       }
     } else {
       return {
         commission,
         finalAmount: amount + commission,
-        display: `Client pays: ₹${(amount + commission).toFixed(2)} (₹${amount} + ₹${commission.toFixed(2)} commission)`
+        display: `Client pays: ₹${(amount + commission).toFixed(2)} (₹${amount.toFixed(2)} + ₹${commission.toFixed(2)} commission)`
       }
     }
   }
@@ -118,46 +148,45 @@ export default function TransactionModal({ isOpen, onClose, role }) {
           </div>
         )}
         
+        {/* Debug info in development */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mb-4 p-2 bg-blue-900/30 border border-blue-700 rounded text-xs text-blue-200">
+            <div>Client ID: {formData.clientId || 'Not set ⚠️'}</div>
+            <div>Branch ID: {formData.branchId || 'Not set ⚠️'}</div>
+            <div>Staff ID: {user?._id || 'Not set ⚠️'}</div>
+          </div>
+        )}
+        
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* <div>
-            {/* <label className="block text-sm font-medium text-slate-300 mb-2">
-              Select Client *
-            </label> 
-            <select
-              name="clientId"
-              value={formData.clientId}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Choose client...</option>
-              {clients.map((client) => (
-                <option key={client._id} value={client._id}>
-                  {client.name} - Balance: ₹{client.walletBalance?.toLocaleString() || 0}
-                </option>
-              ))}
-            </select>
-          </div> */}
-
-          {/* <div>
-            {/* <label className="block text-sm font-medium text-slate-300 mb-2">
-              Select Branch *
-            </label> 
-            <select
-              name="branchId"
-              value={formData.branchId}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Choose branch...</option>
-              {availableBranches.map((branch) => (
-                <option key={branch._id} value={branch._id}>
-                  {branch.name} ({branch.code})
-                </option>
-              ))}
-            </select>
-          </div> */}
+          {/* Show client and branch selection if not auto-populated */}
+          {(!formData.clientId || !formData.branchId) && (
+            <div className="p-3 bg-yellow-900/30 border border-yellow-700 rounded-lg text-yellow-200 text-sm">
+              ⚠️ Please select client and branch
+            </div>
+          )}
+          
+          {/* Optional: Show client/branch selector for staff with multiple assignments */}
+          {availableBranches.length > 1 && (
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Select Branch *
+              </label>
+              <select
+                name="branchId"
+                value={formData.branchId}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Choose branch...</option>
+                {availableBranches.map((branch) => (
+                  <option key={branch._id} value={branch._id}>
+                    {branch.name} ({branch.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -251,7 +280,7 @@ export default function TransactionModal({ isOpen, onClose, role }) {
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !formData.clientId || !formData.branchId}
               className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition disabled:opacity-50"
             >
               {loading ? "Processing..." : "Create Transaction"}
