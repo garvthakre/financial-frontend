@@ -50,8 +50,9 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Remove email index and create phone index
+// Only phone index needed
 userSchema.index({ phone: 1 }, { unique: true });
+userSchema.index({ role: 1 });
 
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) {

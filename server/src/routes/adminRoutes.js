@@ -90,7 +90,6 @@ router.post('/branches', [
 
     const { name, code, clientId, address } = req.body;
 
-    // Check if branch code already exists
     const existingBranch = await Branch.findOne({ code: code.toUpperCase() });
     if (existingBranch) {
       return res.status(400).json({ 
@@ -112,15 +111,14 @@ router.post('/branches', [
       createdBy: req.user._id
     });
 
-    // Populate client data for response
     const populatedBranch = await Branch.findById(branch._id)
-      .populate('clientId', 'name email')
-      .populate('staffMembers', 'name email');
+      .populate('clientId', 'name phone')
+      .populate('staffMembers', 'name phone');
 
     await createAuditLog(req.user._id, 'create_branch', 'branch', branch._id, 
       { name, code, clientId }, req);
 
-    logger.info(`Branch created: ${branch.code} by admin ${req.user.email}`);
+    logger.info(`Branch created: ${branch.code} by admin ${req.user.phone}`);
 
     res.status(201).json({
       success: true,
@@ -166,13 +164,11 @@ router.post('/staff', [
       return res.status(400).json({ success: false, message: 'Phone number already in use' });
     }
 
-    // Validate client exists
     const client = await User.findById(clientId);
     if (!client || client.role !== 'client') {
       return res.status(400).json({ success: false, message: 'Invalid client ID' });
     }
 
-    // Validate all branches exist
     if (branches && branches.length > 0) {
       const branchCount = await Branch.countDocuments({ _id: { $in: branches } });
       if (branchCount !== branches.length) {
@@ -190,7 +186,6 @@ router.post('/staff', [
       createdBy: req.user._id
     });
 
-    // Add staff to branches
     if (branches && branches.length > 0) {
       await Branch.updateMany(
         { _id: { $in: branches } },
@@ -198,7 +193,6 @@ router.post('/staff', [
       );
     }
 
-    // Get populated staff data
     const populatedStaff = await User.findById(staff._id)
       .select('-password')
       .populate('branches', 'name code')
@@ -221,8 +215,6 @@ router.post('/staff', [
 });
 
 // @route   GET /api/admin/dashboard
-// @desc    Get admin dashboard stats
-// @access  Admin only
 router.get('/dashboard', async (req, res) => {
   try {
     const { clientId, branchId } = req.query;
@@ -248,8 +240,6 @@ router.get('/dashboard', async (req, res) => {
 });
 
 // @route   GET /api/admin/clients
-// @desc    Get all clients
-// @access  Admin only
 router.get('/clients', async (req, res) => {
   try {
     const clients = await User.find({ role: 'client' })
@@ -268,13 +258,11 @@ router.get('/clients', async (req, res) => {
 });
 
 // @route   GET /api/admin/branches
-// @desc    Get all branches
-// @access  Admin only
 router.get('/branches', async (req, res) => {
   try {
     const branches = await Branch.find()
-      .populate('clientId', 'name email')
-      .populate('staffMembers', 'name email')
+      .populate('clientId', 'name phone')
+      .populate('staffMembers', 'name phone')
       .sort({ createdAt: -1 });
     
     res.json({
@@ -289,14 +277,12 @@ router.get('/branches', async (req, res) => {
 });
 
 // @route   GET /api/admin/staff
-// @desc    Get all staff members
-// @access  Admin only
 router.get('/staff', async (req, res) => {
   try {
     const staff = await User.find({ role: 'staff' })
       .select('-password')
       .populate('branches', 'name code')
-      .populate('clientId', 'name email')
+      .populate('clientId', 'name phone')
       .sort({ createdAt: -1 });
     
     res.json({
@@ -311,8 +297,6 @@ router.get('/staff', async (req, res) => {
 });
 
 // @route   GET /api/admin/transactions
-// @desc    Get all transactions with pagination
-// @access  Admin only
 router.get('/transactions', async (req, res) => {
   try {
     const { page = 1, limit = 20, clientId, branchId, type, startDate, endDate } = req.query;
@@ -379,9 +363,9 @@ router.get('/transactions', async (req, res) => {
           status: 1,
           createdAt: 1,
           'client.name': 1,
-          'client.email': 1,
+          'client.phone': 1,
           'staff.name': 1,
-          'staff.email': 1,
+          'staff.phone': 1,
           'branch.name': 1,
           'branch.code': 1
         }
@@ -406,8 +390,6 @@ router.get('/transactions', async (req, res) => {
 });
 
 // @route   PUT /api/admin/settings
-// @desc    Update system settings
-// @access  Admin only
 router.put('/settings', [
   body('commissionRate').optional().isFloat({ min: 0, max: 100 }).withMessage('Commission rate must be between 0-100'),
   body('depositDeductionRate').optional().isFloat({ min: 0, max: 100 }).withMessage('Deposit deduction rate must be between 0-100')
@@ -438,7 +420,7 @@ router.put('/settings', [
     await createAuditLog(req.user._id, 'update_settings', 'settings', settings._id, 
       { commissionRate, depositDeductionRate }, req);
 
-    logger.info(`Settings updated by admin ${req.user.email}`);
+    logger.info(`Settings updated by admin ${req.user.phone}`);
 
     res.json({
       success: true,
@@ -452,8 +434,6 @@ router.put('/settings', [
 });
 
 // @route   GET /api/admin/settings
-// @desc    Get system settings
-// @access  Admin only
 router.get('/settings', async (req, res) => {
   try {
     let settings = await Settings.findOne();
@@ -476,8 +456,6 @@ router.get('/settings', async (req, res) => {
 });
 
 // @route   PUT /api/admin/users/:id/status
-// @desc    Activate/Deactivate user
-// @access  Admin only
 router.put('/users/:id/status', async (req, res) => {
   try {
     const { isActive } = req.body;
@@ -493,7 +471,7 @@ router.put('/users/:id/status', async (req, res) => {
     await createAuditLog(req.user._id, 'update_user_status', 'user', user._id, 
       { isActive }, req);
 
-    logger.info(`User ${user.email} status updated to ${isActive} by admin ${req.user.email}`);
+    logger.info(`User ${user.phone} status updated to ${isActive} by admin ${req.user.phone}`);
 
     res.json({
       success: true,

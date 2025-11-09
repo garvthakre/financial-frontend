@@ -34,7 +34,6 @@ router.post('/register', [
 
     const { name, phone, password } = req.body;
 
-    // Check if phone already exists
     const userExists = await User.findOne({ phone });
     if (userExists) {
       return res.status(400).json({ 
@@ -43,7 +42,6 @@ router.post('/register', [
       });
     }
 
-    // Create admin user
     const user = await User.create({
       name,
       phone,
@@ -92,7 +90,6 @@ router.post('/login', authLimiter, [
 
     const { phone, password } = req.body;
 
-    // Find user by phone
     const user = await User.findOne({ phone }).select('+password');
 
     if (!user) {
@@ -102,7 +99,6 @@ router.post('/login', authLimiter, [
       });
     }
 
-    // Check if account is active
     if (!user.isActive) {
       return res.status(401).json({ 
         success: false, 
@@ -110,7 +106,6 @@ router.post('/login', authLimiter, [
       });
     }
 
-    // Verify password
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
       return res.status(401).json({ 
@@ -121,7 +116,6 @@ router.post('/login', authLimiter, [
 
     logger.info(`User logged in: ${user.phone} (${user.role})`);
 
-    // Return user data with token
     res.json({
       success: true,
       message: 'Login successful',
