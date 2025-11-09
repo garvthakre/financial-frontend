@@ -298,7 +298,6 @@ router.get('/transactions', async (req, res) => {
 
     const query = { status: 'completed' };
     
-    // FIX: Added 'new' keyword
     if (clientId && mongoose.Types.ObjectId.isValid(clientId)) {
       query.clientId = new mongoose.Types.ObjectId(clientId);
     }
@@ -311,6 +310,12 @@ router.get('/transactions', async (req, res) => {
       if (startDate) query.createdAt.$gte = new Date(startDate);
       if (endDate) query.createdAt.$lte = new Date(endDate);
     }
+
+    console.log('Admin transactions query:', query);
+
+    // Check total count first
+    const totalCount = await Transaction.countDocuments(query);
+    console.log(`Found ${totalCount} total transactions`);
 
     const aggregate = Transaction.aggregate([
       { $match: query },
@@ -375,16 +380,21 @@ router.get('/transactions', async (req, res) => {
 
     const transactions = await Transaction.aggregatePaginate(aggregate, options);
     
+    console.log('Admin transactions result:', {
+      totalDocs: transactions.totalDocs,
+      docsReturned: transactions.docs?.length || 0
+    });
+    
     res.json({
       success: true,
       data: transactions
     });
   } catch (error) {
     logger.error('Get transactions error:', error);
+    console.error('Get transactions error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
-
 // @route   PUT /api/admin/settings
 router.put('/settings', [
   body('commissionRate').optional().isFloat({ min: 0, max: 100 }).withMessage('Commission rate must be between 0-100'),

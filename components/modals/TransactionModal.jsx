@@ -71,31 +71,53 @@ export default function TransactionModal({ isOpen, onClose, role }) {
       if (result.success) {
         setSuccess("Transaction created successfully!")
         
-        // **FIX: Refresh dashboard and transactions**
-        if (role === 'staff') {
-       // Now uses Promise.all for parallel data fetching
-await Promise.all([
-  fetchDashboardData("staff", user.currentBranch),
-  fetchTransactions("staff", user.currentBranch, 50)
-])
-        } else if (role === 'admin') {
-          await fetchDashboardData("admin")
-          await fetchTransactions("admin", null, 100)
-        }
-        
-        setTimeout(() => {
-          onClose()
-          // Reset form
-          setFormData({
-            clientId: user?.clientId?._id || user?.clientId || "",
-            branchId: user?.branches?.[0]?._id || user?.branches?.[0] || "",
-            type: "credit",
-            amount: "",
-            utrId: "",
-            remark: "",
-          })
-          setSuccess("")
-        }, 1500)
+        // **FIX: Force immediate refresh with setTimeout to ensure backend has processed**
+        setTimeout(async () => {
+          try {
+            if (role === 'staff') {
+              // Fetch both dashboard and transactions in parallel
+              await Promise.all([
+                fetchDashboardData("staff", user.currentBranch),
+                fetchTransactions("staff", user.currentBranch, 50)
+              ])
+            } else if (role === 'admin') {
+              await Promise.all([
+                fetchDashboardData("admin"),
+                fetchTransactions("admin", null, 100)
+              ])
+            }
+            
+            // Close modal after successful refresh
+            setTimeout(() => {
+              onClose()
+              // Reset form
+              setFormData({
+                clientId: user?.clientId?._id || user?.clientId || "",
+                branchId: user?.branches?.[0]?._id || user?.branches?.[0] || "",
+                type: "credit",
+                amount: "",
+                utrId: "",
+                remark: "",
+              })
+              setSuccess("")
+            }, 500)
+          } catch (refreshError) {
+            console.error('Error refreshing data:', refreshError)
+            // Still close the modal even if refresh fails
+            setTimeout(() => {
+              onClose()
+              setFormData({
+                clientId: user?.clientId?._id || user?.clientId || "",
+                branchId: user?.branches?.[0]?._id || user?.branches?.[0] || "",
+                type: "credit",
+                amount: "",
+                utrId: "",
+                remark: "",
+              })
+              setSuccess("")
+            }, 500)
+          }
+        }, 100) // Small delay to ensure backend has finished processing
       } else {
         setError(result.message || "Failed to create transaction")
       }
@@ -161,23 +183,7 @@ await Promise.all([
           </div>
         )}
         
-        {/* Debug info in development */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="mb-4 p-2 bg-blue-900/30 border border-blue-700 rounded text-xs text-blue-200">
-            <div>Client ID: {formData.clientId || 'Not set ⚠️'}</div>
-            <div>Branch ID: {formData.branchId || 'Not set ⚠️'}</div>
-            <div>Staff ID: {user?._id || 'Not set ⚠️'}</div>
-          </div>
-        )}
-        
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Show client and branch selection if not auto-populated */}
-          {(!formData.clientId || !formData.branchId) && (
-            <div className="p-3 bg-yellow-900/30 border border-yellow-700 rounded-lg text-yellow-200 text-sm">
-              ⚠️ Please select client and branch
-            </div>
-          )}
-          
           {/* Optional: Show client/branch selector for staff with multiple assignments */}
           {availableBranches.length > 1 && (
             <div>

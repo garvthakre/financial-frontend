@@ -1,4 +1,4 @@
-// server/src/services/dashboardService.js - FIXED VERSION
+// server/src/services/dashboardService.js - FIXED FIELD NAMES
 const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
 const logger = require('../utils/logger');
@@ -15,31 +15,37 @@ class DashboardService {
         ...filters
       };
 
+      console.log('Admin Dashboard - Match Stage:', JSON.stringify(matchStage));
+
       const summary = await Transaction.aggregate([
         { $match: matchStage },
         {
           $group: {
             _id: null,
-            totalCredit: {
+            totalCredits: {  // Changed from totalCredit to totalCredits
               $sum: { $cond: [{ $eq: ['$type', 'credit'] }, '$finalAmount', 0] }
             },
-            totalDebit: {
+            totalDebits: {  // Changed from totalDebit to totalDebits
               $sum: { $cond: [{ $eq: ['$type', 'debit'] }, '$finalAmount', 0] }
             },
-            totalCommission: { $sum: '$commission' },
+            commission: { $sum: '$commission' },  // Changed from totalCommission
             transactionCount: { $sum: 1 }
           }
         }
       ]);
 
-      return summary[0] || {
-        totalCredit: 0,
-        totalDebit: 0,
-        totalCommission: 0,
+      const result = summary[0] || {
+        totalCredits: 0,
+        totalDebits: 0,
+        commission: 0,
         transactionCount: 0
       };
+
+      console.log('Admin Dashboard - Result:', JSON.stringify(result));
+      return result;
     } catch (error) {
       logger.error('Admin dashboard error:', error);
+      console.error('Admin dashboard error:', error);
       throw error;
     }
   }
@@ -49,42 +55,47 @@ class DashboardService {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // FIX: Ensure clientId is already an ObjectId or create new one
       const clientObjectId = clientId instanceof mongoose.Types.ObjectId 
         ? clientId 
         : new mongoose.Types.ObjectId(clientId);
 
+      const matchStage = {
+        clientId: clientObjectId,
+        createdAt: { $gte: today },
+        status: 'completed'
+      };
+
+      console.log('Client Dashboard - Match Stage:', JSON.stringify(matchStage));
+
       const summary = await Transaction.aggregate([
-        {
-          $match: {
-            clientId: clientObjectId,
-            createdAt: { $gte: today },
-            status: 'completed'
-          }
-        },
+        { $match: matchStage },
         {
           $group: {
             _id: null,
-            totalCredit: {
+            totalCredits: {  // Changed from totalCredit
               $sum: { $cond: [{ $eq: ['$type', 'credit'] }, '$finalAmount', 0] }
             },
-            totalDebit: {
+            totalDebits: {  // Changed from totalDebit
               $sum: { $cond: [{ $eq: ['$type', 'debit'] }, '$finalAmount', 0] }
             },
-            totalCommission: { $sum: '$commission' },
+            commission: { $sum: '$commission' },  // Changed from totalCommission
             transactionCount: { $sum: 1 }
           }
         }
       ]);
 
-      return summary[0] || {
-        totalCredit: 0,
-        totalDebit: 0,
-        totalCommission: 0,
+      const result = summary[0] || {
+        totalCredits: 0,
+        totalDebits: 0,
+        commission: 0,
         transactionCount: 0
       };
+
+      console.log('Client Dashboard - Result:', JSON.stringify(result));
+      return result;
     } catch (error) {
       logger.error('Client dashboard error:', error);
+      console.error('Client dashboard error:', error);
       throw error;
     }
   }
@@ -94,7 +105,6 @@ class DashboardService {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // FIX: Ensure IDs are ObjectId instances
       const staffObjectId = staffId instanceof mongoose.Types.ObjectId 
         ? staffId 
         : new mongoose.Types.ObjectId(staffId);
@@ -112,31 +122,37 @@ class DashboardService {
         matchStage.branchId = branchObjectId;
       }
 
+      console.log('Staff Dashboard - Match Stage:', JSON.stringify(matchStage));
+
       const summary = await Transaction.aggregate([
         { $match: matchStage },
         {
           $group: {
             _id: null,
-            totalCredit: {
+            totalCredits: {  // Changed from totalCredit
               $sum: { $cond: [{ $eq: ['$type', 'credit'] }, '$finalAmount', 0] }
             },
-            totalDebit: {
+            totalDebits: {  // Changed from totalDebit
               $sum: { $cond: [{ $eq: ['$type', 'debit'] }, '$finalAmount', 0] }
             },
-            totalCommission: { $sum: '$commission' },
+            commission: { $sum: '$commission' },  // Changed from totalCommission
             transactionCount: { $sum: 1 }
           }
         }
       ]);
 
-      return summary[0] || {
-        totalCredit: 0,
-        totalDebit: 0,
-        totalCommission: 0,
+      const result = summary[0] || {
+        totalCredits: 0,
+        totalDebits: 0,
+        commission: 0,
         transactionCount: 0
       };
+
+      console.log('Staff Dashboard - Result:', JSON.stringify(result));
+      return result;
     } catch (error) {
       logger.error('Staff dashboard error:', error);
+      console.error('Staff dashboard error:', error);
       throw error;
     }
   }

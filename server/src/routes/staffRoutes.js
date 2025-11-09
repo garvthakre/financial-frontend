@@ -1,3 +1,4 @@
+// server/src/routes/staffRoutes.js - FIXED
 const express = require('express');
 const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
@@ -12,13 +13,10 @@ const router = express.Router();
 router.use(protect, authorize('staff'));
 
 // @route   GET /api/staff/dashboard
-// @desc    Get staff dashboard
-// @access  Staff only
 router.get('/dashboard', async (req, res) => {
   try {
     const { branchId } = req.query;
     
-    // FIX: Added 'new' keyword
     const dashboard = await dashboardService.getStaffDashboard(
       new mongoose.Types.ObjectId(req.user._id),
       branchId ? new mongoose.Types.ObjectId(branchId) : null
@@ -35,14 +33,12 @@ router.get('/dashboard', async (req, res) => {
 });
 
 // @route   GET /api/staff/branches
-// @desc    Get staff's assigned branches
-// @access  Staff only
 router.get('/branches', async (req, res) => {
   try {
     const branches = await Branch.find({ 
       _id: { $in: req.user.branches },
       isActive: true
-    }).populate('clientId', 'name email');
+    }).populate('clientId', 'name phone');
     
     res.json({
       success: true,
@@ -56,68 +52,123 @@ router.get('/branches', async (req, res) => {
 });
 
 // @route   GET /api/staff/transactions
-// @desc    Get staff's transactions
-// @access  Staff only
 router.get('/transactions', async (req, res) => {
   try {
-    const { page = 1, limit = 20, branchId, type } = req.query;
+    const { page = 1, limit = 50, branchId, type } = req.query;
 
-    const query = { staffId: req.user._id, status: 'completed' };
-    
-    if (branchId) query.branchId = branchId;
-    if (type) query.type = type;
-
-    const aggregate = Transaction.aggregate([
-      { $match: query },
-      { $sort: { createdAt: -1 } },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'clientId',
-          foreignField: '_id',
-          as: 'client'
-        }
-      },
-      {
-        $lookup: {
-          from: 'branches',
-          localField: 'branchId',
-          foreignField: '_id',
-          as: 'branch'
-        }
-      },
-      { $unwind: '$client' },
-      { $unwind: '$branch' },
-      {
-        $project: {
-          type: 1,
-          amount: 1,
-          commission: 1,
-          finalAmount: 1,
-          remark: 1,
-          utrId: 1,
-          createdAt: 1,
-          'client.name': 1,
-          'client.email': 1,
-          'branch.name': 1,
-          'branch.code': 1
-        }
-      }
-    ]);
-
-    const options = {
-      page: parseInt(page),
-      limit: parseInt(limit)
-    };
-
-    const transactions = await Transaction.aggregatePaginate(aggregate, options);
-    
-    res.json({
-      success: true,
-      data: transactions
+    console.log('Staff transactions query:', {
+      staffId: req.user._id,
+      branchId,
+      type,
+      page,
+      limit
     });
+
+    const query = { 
+      staffId: req.user._id, 
+      status: 'completed' 
+    };
+    
+    if (branchId) {
+      query.branchId = new mongoose.Types.ObjectId(branchId);
+    }
+    if (type) {
+      query.type = type;
+    }
+
+    // First, let's check if there are any transactions at all
+    const totalCount = await Transaction.countDocuments(query);
+    console.log(`Found ${totalCount} transactions matching query`);
+
+    // If using aggregatePaginate
+    if (Transaction.aggregatePaginate) {
+      const aggregate = Transaction.aggregate([
+        { $match: query },
+        { $sort: { createdAt: -1 } },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'clientId',
+            foreignField: '_id',
+            as: 'client'
+          }
+        },
+        {
+          $lookup: {
+            from: 'branches',
+            localField: 'branchId',
+            foreignField: '_id',
+            as: 'branch'
+          }
+        },
+        {
+          $addFields: {
+            client: { $arrayElemAt: ['$client', 0] },
+            branch: { $arrayElemAt: ['$branch', 0] }
+          }
+        },
+        {
+          $project: {
+            type: 1,
+            amount: 1,
+            commission: 1,
+            finalAmount: 1,
+            remark: 1,
+            utrId: 1,
+            balanceBefore: 1,
+            balanceAfter: 1,
+            status: 1,
+            createdAt: 1,
+            'client.name': 1,
+            'client.phone': 1,
+            'branch.name': 1,
+            'branch.code': 1
+          }
+        }
+      ]);
+
+      const options = {
+        page: parseInt(page),
+        limit: parseInt(limit)
+      };
+
+      const transactions = await Transaction.aggregatePaginate(aggregate, options);
+      
+      console.log('Paginated transactions result:', {
+        totalDocs: transactions.totalDocs,
+        docsReturned: transactions.docs?.length || 0
+      });
+
+      res.json({
+        success: true,
+        data: transactions
+      });
+    } else {
+      // Fallback without pagination
+      const transactions = await Transaction.find(query)
+        .sort({ createdAt: -1 })
+        .limit(parseInt(limit))
+        .skip((parseInt(page) - 1) * parseInt(limit))
+        .populate('clientId', 'name phone')
+        .populate('branchId', 'name code')
+        .lean();
+
+      console.log(`Returning ${transactions.length} transactions`);
+
+      res.json({
+        success: true,
+        data: {
+          docs: transactions,
+          totalDocs: totalCount,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages: Math.ceil(totalCount / parseInt(limit))
+        }
+      });
+    }
   } catch (error) {
     logger.error('Get transactions error:', error);
+    console.error('Get transactions error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

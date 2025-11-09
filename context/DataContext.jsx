@@ -27,8 +27,27 @@ export function DataProvider({ children }) {
         response = await api.getStaffDashboard(branchId ? { branchId } : {})
       }
       
+      console.log('Dashboard API Response:', response)
+      
       if (response?.success) {
-        setDashboardData(response.data)
+        const data = response.data || {
+          totalCredits: 0,
+          totalDebits: 0,
+          commission: 0,
+          walletBalance: 0,
+          transactionCount: 0
+        }
+        console.log('Setting dashboard data:', data)
+        setDashboardData(data)
+      } else {
+        console.error('Dashboard fetch failed:', response)
+        setDashboardData({
+          totalCredits: 0,
+          totalDebits: 0,
+          commission: 0,
+          walletBalance: 0,
+          transactionCount: 0
+        })
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error)
@@ -51,6 +70,8 @@ export function DataProvider({ children }) {
       const params = { limit, ...filters }
       if (branchId) params.branchId = branchId
 
+      console.log('Fetching transactions:', { role, branchId, params })
+
       if (role === 'admin') {
         response = await api.getAdminTransactions(params)
       } else if (role === 'client') {
@@ -59,9 +80,13 @@ export function DataProvider({ children }) {
         response = await api.getStaffTransactions(params)
       }
 
+      console.log('Transactions API Response:', response)
+
       if (response?.success) {
-        // Transform backend data to match frontend expectations
-        const txnData = response.data.docs || response.data || []
+        // Handle both paginated and non-paginated responses
+        const txnData = response.data?.docs || response.data || []
+        console.log('Raw transaction data:', txnData)
+        
         const transformedData = txnData.map(txn => ({
           id: txn._id,
           utrId: txn.utrId,
@@ -78,7 +103,12 @@ export function DataProvider({ children }) {
           staff: txn.staff,
           branch: txn.branch
         }))
+        
+        console.log('Transformed transactions:', transformedData)
         setTransactions(transformedData)
+      } else {
+        console.error('Transaction fetch failed:', response)
+        setTransactions([])
       }
     } catch (error) {
       console.error('Failed to fetch transactions:', error)
@@ -177,7 +207,10 @@ export function DataProvider({ children }) {
 
   const addTransaction = useCallback(async (txnData) => {
     try {
+      console.log('Creating transaction with data:', txnData)
       const response = await api.createTransaction(txnData)
+      console.log('Transaction creation response:', response)
+      
       if (response?.success) {
         return { success: true, data: response.data }
       }

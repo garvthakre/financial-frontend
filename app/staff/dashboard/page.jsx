@@ -50,28 +50,28 @@ export default function StaffDashboardPage() {
             {
               title: "Today's Credits",
               value: data?.totalCredits ? `$${(data.totalCredits / 1000).toFixed(1)}K` : "$0",
-              trend: "+15.3%",
+             
               icon: "📈",
               color: "green",
             },
             {
               title: "Today's Debits",
               value: data?.totalDebits ? `$${(data.totalDebits / 1000).toFixed(1)}K` : "$0",
-              trend: "-8.2%",
+              
               icon: "📉",
               color: "red",
             },
             {
               title: "Commission (3%)",
               value: data?.commission ? `$${(data.commission / 1000).toFixed(1)}K` : "$0",
-              trend: "+12.1%",
+             
               icon: "💰",
               color: "orange",
             },
             {
               title: "Transactions",
               value: data?.transactionCount || "0",
-              trend: "+5.2%",
+             
               icon: "💳",
               color: "blue",
             },
