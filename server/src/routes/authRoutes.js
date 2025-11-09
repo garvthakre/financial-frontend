@@ -25,16 +25,25 @@ router.post('/register', [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
+      return res.status(400).json({ 
+        success: false, 
+        message: errors.array()[0].msg, 
+        errors: errors.array() 
+      });
     }
 
-    const { name, phone, password, role } = req.body;
+    const { name, phone, password } = req.body;
 
+    // Check if phone already exists
     const userExists = await User.findOne({ phone });
     if (userExists) {
-      return res.status(400).json({ success: false, message: 'Phone number already registered' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Phone number already registered' 
+      });
     }
 
+    // Create admin user
     const user = await User.create({
       name,
       phone,
@@ -46,6 +55,7 @@ router.post('/register', [
 
     res.status(201).json({
       success: true,
+      message: 'Admin registered successfully',
       data: {
         _id: user._id,
         name: user.name,
@@ -56,12 +66,15 @@ router.post('/register', [
     });
   } catch (error) {
     logger.error('Registration error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
   }
 });
 
 // @route   POST /api/auth/login
-// @desc    Login user
+// @desc    Login user (admin, client, staff)
 // @access  Public
 router.post('/login', authLimiter, [
   body('phone').matches(/^[0-9]{10}$/).withMessage('Valid 10-digit phone number is required'),
@@ -70,30 +83,48 @@ router.post('/login', authLimiter, [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
+      return res.status(400).json({ 
+        success: false, 
+        message: errors.array()[0].msg, 
+        errors: errors.array() 
+      });
     }
 
     const { phone, password } = req.body;
 
+    // Find user by phone
     const user = await User.findOne({ phone }).select('+password');
 
     if (!user) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Invalid phone number or password' 
+      });
     }
 
+    // Check if account is active
     if (!user.isActive) {
-      return res.status(401).json({ success: false, message: 'Account is inactive' });
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Your account has been deactivated. Please contact administrator.' 
+      });
     }
 
+    // Verify password
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Invalid phone number or password' 
+      });
     }
 
-    logger.info(`User logged in: ${user.phone}`);
+    logger.info(`User logged in: ${user.phone} (${user.role})`);
 
+    // Return user data with token
     res.json({
       success: true,
+      message: 'Login successful',
       data: {
         _id: user._id,
         name: user.name,
@@ -107,7 +138,33 @@ router.post('/login', authLimiter, [
     });
   } catch (error) {
     logger.error('Login error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Login failed. Please try again.' 
+    });
+  }
+});
+
+// @route   GET /api/auth/me
+// @desc    Get current user
+// @access  Private
+router.get('/me', require('../middleware/auth').protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id)
+      .select('-password')
+      .populate('branches', 'name code')
+      .populate('clientId', 'name phone');
+
+    res.json({
+      success: true,
+      data: user
+    });
+  } catch (error) {
+    logger.error('Get current user error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
   }
 });
 
