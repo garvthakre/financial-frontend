@@ -1,3 +1,4 @@
+// components/modals/StaffBranchAssignmentModal.jsx - FIXED VERSION
 import { useState, useEffect } from 'react';
 
 export default function StaffBranchAssignmentModal({ isOpen, onClose, staff, branches, onAssign }) {
@@ -8,17 +9,25 @@ export default function StaffBranchAssignmentModal({ isOpen, onClose, staff, bra
 
   useEffect(() => {
     if (isOpen && staff) {
+      console.log('Modal opened for staff:', staff);
+      console.log('Current branches:', staff.branches);
       // Pre-select currently assigned branches
-      setSelectedBranches(staff.branches?.map(b => b._id || b) || []);
+      const currentBranchIds = staff.branches?.map(b => b._id || b) || [];
+      console.log('Setting selected branches:', currentBranchIds);
+      setSelectedBranches(currentBranchIds);
     }
   }, [isOpen, staff]);
 
   const handleToggleBranch = (branchId) => {
-    setSelectedBranches(prev => 
-      prev.includes(branchId)
+    setSelectedBranches(prev => {
+      const isCurrentlySelected = prev.includes(branchId);
+      const newSelection = isCurrentlySelected
         ? prev.filter(id => id !== branchId)
-        : [...prev, branchId]
-    );
+        : [...prev, branchId];
+      
+      console.log('Branch toggled:', branchId, 'New selection:', newSelection);
+      return newSelection;
+    });
     setError('');
   };
 
@@ -27,11 +36,11 @@ export default function StaffBranchAssignmentModal({ isOpen, onClose, staff, bra
     setError('');
     
     try {
+      console.log('Submitting assignment:', { staffId: staff._id, branchIds: selectedBranches });
       await onAssign(staff._id, selectedBranches);
-      onClose();
     } catch (err) {
+      console.error('Assignment failed:', err);
       setError(err.message || 'Failed to assign branches');
-    } finally {
       setLoading(false);
     }
   };
@@ -201,7 +210,7 @@ export default function StaffBranchAssignmentModal({ isOpen, onClose, staff, bra
           </button>
           <button
             onClick={handleSubmit}
-            disabled={loading || selectedBranches.length === 0}
+            disabled={loading}
             className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white rounded-lg font-semibold transition disabled:opacity-50 shadow-lg"
           >
             {loading ? (

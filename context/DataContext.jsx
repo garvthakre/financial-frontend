@@ -1,3 +1,4 @@
+// context/DataContext.jsx - UPDATED WITH STAFF ASSIGNMENT
 "use client"
 
 import { createContext, useContext, useState, useCallback, useRef } from "react"
@@ -83,7 +84,6 @@ export function DataProvider({ children }) {
       console.log('Transactions API Response:', response)
 
       if (response?.success) {
-        // Handle both paginated and non-paginated responses
         const txnData = response.data?.docs || response.data || []
         console.log('Raw transaction data:', txnData)
         
@@ -137,6 +137,7 @@ export function DataProvider({ children }) {
     setLoading(true)
     try {
       const response = await api.getBranches()
+      console.log('Branches fetched:', response)
       if (response?.success) {
         setBranches(response.data || [])
       }
@@ -148,7 +149,22 @@ export function DataProvider({ children }) {
     }
   }, [])
 
- 
+  const fetchStaff = useCallback(async () => {
+    setLoading(true)
+    try {
+      console.log('Fetching staff...')
+      const response = await api.getStaff()
+      console.log('Staff fetched:', response)
+      if (response?.success) {
+        setStaff(response.data || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch staff:', error)
+      setStaff([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   const addClient = useCallback(async (clientData) => {
     try {
@@ -178,30 +194,15 @@ export function DataProvider({ children }) {
     }
   }, [fetchBranches])
 
- 
-    const fetchStaff = useCallback(async () => {
-    setLoading(true)
-    try {
-      const response = await api.getStaff()
-      if (response?.success) {
-        setStaff(response.data || [])
-      }
-    } catch (error) {
-      console.error('Failed to fetch staff:', error)
-      setStaff([])
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
   const addStaff = useCallback(async (staffData) => {
     try {
-      // Only send basic staff info, no branch assignment yet
+      console.log('Creating staff with data:', staffData)
       const response = await api.createStaff({
         name: staffData.name,
         phone: staffData.phone,
         password: staffData.password
       })
+      console.log('Staff creation response:', response)
       if (response?.success) {
         await fetchStaff()
         return { success: true }
@@ -215,9 +216,12 @@ export function DataProvider({ children }) {
 
   const assignStaffToBranches = useCallback(async (staffId, branchIds) => {
     try {
+      console.log('Assigning staff to branches:', { staffId, branchIds })
       const response = await api.assignStaffToBranches(staffId, branchIds)
+      console.log('Assignment response:', response)
+      
       if (response?.success) {
-        await fetchStaff() // Refresh staff list
+        await fetchStaff() // Refresh staff list to show updated assignments
         return { success: true }
       }
       return { success: false, message: response?.message || 'Failed to assign branches' }

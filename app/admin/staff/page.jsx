@@ -1,8 +1,9 @@
+// app/admin/staff/page.jsx - FULLY INTEGRATED WITH BACKEND
 "use client"
 
 import { useState, useEffect } from "react";
 import { useData } from "@/context/DataContext";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import SearchFilter from "@/components/shared/SearchFilter";
 import ExportButton from "@/components/shared/ExportButton";
@@ -20,9 +21,18 @@ export default function StaffPage() {
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    fetchStaff();
-    fetchBranches();
-  }, [fetchStaff, fetchBranches]);
+    const loadData = async () => {
+      console.log('Loading staff and branches data...');
+      await Promise.all([fetchStaff(), fetchBranches()]);
+    };
+    loadData();
+  }, []);
+
+  // Log staff data to debug
+  useEffect(() => {
+    console.log('Staff data:', staff);
+    console.log('Branches data:', branches);
+  }, [staff, branches]);
 
   const filteredStaff = staff.filter((s) => {
     const matchesSearch = !searchQuery || 
@@ -45,18 +55,26 @@ export default function StaffPage() {
     setError("");
     setSuccess("");
     
-    const result = await addStaff(formData);
-    
-    if (result.success) {
-      setSuccess("Staff member created successfully!");
-      setShowCreateForm(false);
-      setTimeout(() => setSuccess(""), 3000);
-    } else {
-      setError(result.message || "Failed to create staff member");
+    try {
+      console.log('Creating staff with data:', formData);
+      const result = await addStaff(formData);
+      
+      if (result.success) {
+        setSuccess("Staff member created successfully!");
+        setShowCreateForm(false);
+        await fetchStaff();
+        setTimeout(() => setSuccess(""), 3000);
+      } else {
+        setError(result.message || "Failed to create staff member");
+      }
+    } catch (err) {
+      console.error('Staff creation error:', err);
+      setError(err.message || "Failed to create staff member");
     }
   };
 
   const handleOpenAssignment = (staffMember) => {
+    console.log("Opening assignment modal for:", staffMember);
     setSelectedStaff(staffMember);
     setShowAssignModal(true);
   };
@@ -65,29 +83,40 @@ export default function StaffPage() {
     setError("");
     setSuccess("");
 
-    const result = await assignStaffToBranches(staffId, branchIds);
+    try {
+      console.log("Assigning branches:", { staffId, branchIds });
+      const result = await assignStaffToBranches(staffId, branchIds);
 
-    if (result.success) {
-      setSuccess("Branches assigned successfully!");
-      setShowAssignModal(false);
-      await fetchStaff(); // Refresh the list
-      setTimeout(() => setSuccess(""), 3000);
-    } else {
-      throw new Error(result.message || "Failed to assign branches");
+      if (result.success) {
+        setSuccess(`Successfully assigned ${branchIds.length} branch(es) to staff member!`);
+        setShowAssignModal(false);
+        setSelectedStaff(null);
+        await fetchStaff(); // Refresh staff list with updated branch assignments
+        setTimeout(() => setSuccess(""), 3000);
+      } else {
+        setError(result.message || "Failed to assign branches");
+      }
+    } catch (err) {
+      console.error("Assignment error:", err);
+      setError(err.message || "Failed to assign branches");
     }
   };
 
-  // Get unique clients from branches
   const getStaffClients = (staffMember) => {
     if (!staffMember.branches || staffMember.branches.length === 0) return [];
     
     const clientMap = new Map();
     staffMember.branches.forEach(branch => {
       if (branch.clientId) {
-        clientMap.set(branch.clientId._id || branch.clientId, {
-          name: branch.clientId.name,
-          phone: branch.clientId.phone
-        });
+        const clientId = branch.clientId._id || branch.clientId;
+        const clientData = typeof branch.clientId === 'object' ? branch.clientId : null;
+        
+        if (clientData && !clientMap.has(clientId)) {
+          clientMap.set(clientId, {
+            name: clientData.name,
+            phone: clientData.phone
+          });
+        }
       }
     });
     return Array.from(clientMap.values());
@@ -200,7 +229,7 @@ export default function StaffPage() {
                       ? 'bg-green-900/20 border border-green-700/30' 
                       : 'bg-orange-900/20 border border-orange-700/30'
                   }`}>
-                    <p className="text-xs font-semibold mb-1 ${isAssigned ? 'text-green-400' : 'text-orange-400'}">
+                    <p className={`text-xs font-semibold mb-1 ${isAssigned ? 'text-green-400' : 'text-orange-400'}`}>
                       {isAssigned ? '✓ Assigned' : '⚠ Unassigned'}
                     </p>
                     <p className="text-sm text-slate-300">
@@ -265,18 +294,27 @@ export default function StaffPage() {
       {/* Modals */}
       <StaffFormModal 
         isOpen={showCreateForm} 
-        onClose={() => setShowCreateForm(false)} 
+        onClose={() => {
+          setShowCreateForm(false);
+          setError("");
+        }} 
         onSubmit={handleAddStaff}
         skipBranchSelection={true}
       />
       
-      <StaffBranchAssignmentModal
-        isOpen={showAssignModal}
-        onClose={() => setShowAssignModal(false)}
-        staff={selectedStaff}
-        branches={branches}
-        onAssign={handleAssignBranches}
-      />
+      {showAssignModal && selectedStaff && (
+        <StaffBranchAssignmentModal
+          isOpen={showAssignModal}
+          onClose={() => {
+            setShowAssignModal(false);
+            setSelectedStaff(null);
+            setError("");
+          }}
+          staff={selectedStaff}
+          branches={branches}
+          onAssign={handleAssignBranches}
+        />
+      )}
     </div>
   );
 }

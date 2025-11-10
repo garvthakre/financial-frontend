@@ -32,8 +32,11 @@ class ApiClient {
     }
 
     try {
+      console.log('API Request:', { method: config.method || 'GET', url, body: config.body })
       const response = await fetch(url, config)
       const data = await response.json()
+
+      console.log('API Response:', { status: response.status, data })
 
       if (!response.ok) {
         if (response.status === 401) {
