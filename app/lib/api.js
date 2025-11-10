@@ -179,6 +179,38 @@ class ApiClient {
   async getSettings() {
     return this.request('/admin/settings')
   }
+  // Add these methods to app/lib/api.js
+
+  // Delete methods
+  async deleteClient(clientId) {
+    return this.request(`/admin/clients/${clientId}`, {
+      method: 'DELETE'
+    })
+  }
+
+  async deleteBranch(branchId) {
+    return this.request(`/admin/branches/${branchId}`, {
+      method: 'DELETE'
+    })
+  }
+
+  async deleteStaff(staffId) {
+    return this.request(`/admin/staff/${staffId}`, {
+      method: 'DELETE'
+    })
+  }
+
+  async deleteTransaction(transactionId) {
+    return this.request(`/transactions/${transactionId}`, {
+      method: 'DELETE'
+    })
+  }
+
+  async deleteStaffTransaction(transactionId) {
+    return this.request(`/staff/transactions/${transactionId}`, {
+      method: 'DELETE'
+    })
+  }
 
   async updateSettings(settingsData) {
     return this.request('/admin/settings', {
@@ -187,6 +219,10 @@ class ApiClient {
     })
   }
 }
+ 
 
+// Staff Routes - Add this route to server/src/routes/staffRoutes.js
+
+ 
 const api = new ApiClient()
 export default api

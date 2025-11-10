@@ -172,5 +172,77 @@ router.get('/transactions', async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 });
+// Add this route to server/src/routes/staffRoutes.js
+
+// @route   DELETE /api/staff/transactions/:id
+// @desc    Delete own transaction (with balance reversal)
+router.delete('/transactions/:id', async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const transaction = await Transaction.findById(req.params.id).session(session);
+    
+    if (!transaction) {
+      await session.abortTransaction();
+      return res.status(404).json({ success: false, message: 'Transaction not found' });
+    }
+
+    // Verify staff owns this transaction
+    if (transaction.staffId.toString() !== req.user._id.toString()) {
+      await session.abortTransaction();
+      return res.status(403).json({ 
+        success: false, 
+        message: 'You can only delete your own transactions' 
+      });
+    }
+
+    // Don't allow deleting old transactions (e.g., older than 24 hours)
+    const transactionAge = Date.now() - new Date(transaction.createdAt).getTime();
+    const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+    
+    if (transactionAge > maxAge) {
+      await session.abortTransaction();
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Cannot delete transactions older than 24 hours. Contact admin.' 
+      });
+    }
+
+    // Get staff member
+    const staff = await User.findById(req.user._id).session(session);
+
+    // Reverse the balance change
+    if (transaction.type === 'credit') {
+      staff.walletBalance -= transaction.finalAmount;
+    } else if (transaction.type === 'debit') {
+      staff.walletBalance += transaction.finalAmount;
+    }
+
+    await staff.save({ session });
+
+    // Delete the transaction
+    await Transaction.findByIdAndDelete(transaction._id).session(session);
+
+    await session.commitTransaction();
+
+    logger.info(`Transaction deleted: ${transaction._id} by staff ${req.user.phone}`);
+
+    res.json({
+      success: true,
+      message: 'Transaction deleted and balance reversed successfully',
+      data: {
+        newBalance: staff.walletBalance
+      }
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    logger.error('Delete transaction error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  } finally {
+    session.endSession();
+  }
+});
+
 
 module.exports = router;

@@ -244,7 +244,68 @@ export function DataProvider({ children }) {
       return { success: false, message: error.message || 'Failed to remove staff from branch' }
     }
   }, [fetchStaff])
+  // Add these methods to context/DataContext.jsx
 
+  const deleteClient = useCallback(async (clientId) => {
+    try {
+      const response = await api.deleteClient(clientId)
+      if (response?.success) {
+        await fetchClients()
+        return { success: true }
+      }
+      return { success: false, message: response?.message || 'Failed to delete client' }
+    } catch (error) {
+      console.error('Failed to delete client:', error)
+      return { success: false, message: error.message || 'Failed to delete client' }
+    }
+  }, [fetchClients])
+
+  const deleteBranch = useCallback(async (branchId) => {
+    try {
+      const response = await api.deleteBranch(branchId)
+      if (response?.success) {
+        await fetchBranches()
+        return { success: true }
+      }
+      return { success: false, message: response?.message || 'Failed to delete branch' }
+    } catch (error) {
+      console.error('Failed to delete branch:', error)
+      return { success: false, message: error.message || 'Failed to delete branch' }
+    }
+  }, [fetchBranches])
+
+  const deleteStaff = useCallback(async (staffId) => {
+    try {
+      const response = await api.deleteStaff(staffId)
+      if (response?.success) {
+        await fetchStaff()
+        return { success: true }
+      }
+      return { success: false, message: response?.message || 'Failed to delete staff' }
+    } catch (error) {
+      console.error('Failed to delete staff:', error)
+      return { success: false, message: error.message || 'Failed to delete staff' }
+    }
+  }, [fetchStaff])
+
+  const deleteTransaction = useCallback(async (transactionId, role = 'admin') => {
+    try {
+      const response = role === 'staff' 
+        ? await api.deleteStaffTransaction(transactionId)
+        : await api.deleteTransaction(transactionId)
+        
+      if (response?.success) {
+        return { success: true, data: response.data }
+      }
+      return { success: false, message: response?.message || 'Failed to delete transaction' }
+    } catch (error) {
+      console.error('Failed to delete transaction:', error)
+      return { success: false, message: error.message || 'Failed to delete transaction' }
+    }
+  }, [])
+
+// Add these to the DataContext.Provider value:
+// deleteClient, deleteBranch, deleteStaff, deleteTransaction
   const addTransaction = useCallback(async (txnData) => {
     try {
       console.log('Creating transaction with data:', txnData)
@@ -293,6 +354,7 @@ export function DataProvider({ children }) {
         addClient,
         addBranch,
         addStaff,
+        deleteClient, deleteBranch, deleteStaff, deleteTransaction,
         assignStaffToBranches,
         removeStaffFromBranch,
         addTransaction,

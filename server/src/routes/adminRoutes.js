@@ -190,6 +190,196 @@ router.post('/staff', [
     res.status(500).json({ success: false, message: error.message });
   }
 });
+// Add these routes to server/src/routes/adminRoutes.js
+
+// @route   DELETE /api/admin/clients/:id
+// @desc    Delete client (soft delete - deactivate)
+router.delete('/clients/:id', async (req, res) => {
+  try {
+    const client = await User.findById(req.params.id);
+    
+    if (!client || client.role !== 'client') {
+      return res.status(404).json({ success: false, message: 'Client not found' });
+    }
+
+    // Check if client has any branches
+    const branches = await Branch.find({ clientId: client._id });
+    if (branches.length > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Cannot delete client with existing branches. Delete branches first.' 
+      });
+    }
+
+    // Soft delete - deactivate instead of removing
+    client.isActive = false;
+    await client.save();
+
+    await createAuditLog(req.user._id, 'delete_client', 'user', client._id, 
+      { name: client.name, phone: client.phone }, req);
+
+    logger.info(`Client deleted: ${client.phone} by admin ${req.user.phone}`);
+
+    res.json({
+      success: true,
+      message: 'Client deleted successfully'
+    });
+  } catch (error) {
+    logger.error('Delete client error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   DELETE /api/admin/branches/:id
+// @desc    Delete branch (soft delete - deactivate)
+router.delete('/branches/:id', async (req, res) => {
+  try {
+    const branch = await Branch.findById(req.params.id);
+    
+    if (!branch) {
+      return res.status(404).json({ success: false, message: 'Branch not found' });
+    }
+
+    // Check if branch has any transactions
+    const transactionCount = await Transaction.countDocuments({ branchId: branch._id });
+    if (transactionCount > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Cannot delete branch with ${transactionCount} transaction(s). Archive it instead by deactivating.` 
+      });
+    }
+
+    // Remove branch from all assigned staff
+    await User.updateMany(
+      { branches: branch._id },
+      { $pull: { branches: branch._id } }
+    );
+
+    // Soft delete
+    branch.isActive = false;
+    await branch.save();
+
+    await createAuditLog(req.user._id, 'delete_branch', 'branch', branch._id, 
+      { name: branch.name, code: branch.code }, req);
+
+    logger.info(`Branch deleted: ${branch.code} by admin ${req.user.phone}`);
+
+    res.json({
+      success: true,
+      message: 'Branch deleted successfully'
+    });
+  } catch (error) {
+    logger.error('Delete branch error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   DELETE /api/admin/transactions/:id
+// @desc    Delete transaction (hard delete with balance reversal)
+router.delete('/transactions/:id', async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const transaction = await Transaction.findById(req.params.id).session(session);
+    
+    if (!transaction) {
+      await session.abortTransaction();
+      return res.status(404).json({ success: false, message: 'Transaction not found' });
+    }
+
+    // Get staff member
+    const staff = await User.findById(transaction.staffId).session(session);
+    if (!staff) {
+      await session.abortTransaction();
+      return res.status(404).json({ success: false, message: 'Staff member not found' });
+    }
+
+    // Reverse the balance change
+    if (transaction.type === 'credit') {
+      // Was: staff balance increased by finalAmount
+      // Reverse: decrease staff balance
+      staff.walletBalance -= transaction.finalAmount;
+    } else if (transaction.type === 'debit') {
+      // Was: staff balance decreased by finalAmount
+      // Reverse: increase staff balance
+      staff.walletBalance += transaction.finalAmount;
+    }
+
+    await staff.save({ session });
+
+    // Delete the transaction
+    await Transaction.findByIdAndDelete(transaction._id).session(session);
+
+    await createAuditLog(req.user._id, 'delete_transaction', 'transaction', transaction._id, 
+      { 
+        type: transaction.type, 
+        amount: transaction.amount, 
+        reversedBalance: staff.walletBalance 
+      }, req);
+
+    await session.commitTransaction();
+
+    logger.info(`Transaction deleted: ${transaction._id} by admin ${req.user.phone}`);
+
+    res.json({
+      success: true,
+      message: 'Transaction deleted and balance reversed successfully'
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    logger.error('Delete transaction error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  } finally {
+    session.endSession();
+  }
+});
+
+// @route   DELETE /api/admin/staff/:id
+// @desc    Delete staff member (soft delete)
+router.delete('/staff/:id', async (req, res) => {
+  try {
+    const staff = await User.findById(req.params.id);
+    
+    if (!staff || staff.role !== 'staff') {
+      return res.status(404).json({ success: false, message: 'Staff member not found' });
+    }
+
+    // Check if staff has any transactions
+    const transactionCount = await Transaction.countDocuments({ staffId: staff._id });
+    if (transactionCount > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Cannot delete staff with ${transactionCount} transaction(s). Deactivate instead.` 
+      });
+    }
+
+    // Remove staff from all branches
+    await Branch.updateMany(
+      { staffMembers: staff._id },
+      { $pull: { staffMembers: staff._id } }
+    );
+
+    // Soft delete
+    staff.isActive = false;
+    staff.branches = [];
+    await staff.save();
+
+    await createAuditLog(req.user._id, 'delete_staff', 'user', staff._id, 
+      { name: staff.name, phone: staff.phone }, req);
+
+    logger.info(`Staff deleted: ${staff.phone} by admin ${req.user.phone}`);
+
+    res.json({
+      success: true,
+      message: 'Staff member deleted successfully'
+    });
+  } catch (error) {
+    logger.error('Delete staff error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // @route   POST /api/admin/staff/:staffId/assign-branches
 // @desc    Assign staff to branches (can be from multiple clients)
 router.post('/staff/:staffId/assign-branches', [
