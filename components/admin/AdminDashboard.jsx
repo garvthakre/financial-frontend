@@ -72,7 +72,7 @@ export default function AdminDashboard({ data, loading }) {
           </CardContent>
         </Card> */}
 
-        <Card className="bg-slate-900 border-slate-800">
+        {/* <Card className="bg-slate-900 border-slate-800">
           <CardHeader>
             <CardTitle className="text-white">Top Branches</CardTitle>
             <CardDescription>Performance ranking by commission</CardDescription>
@@ -89,7 +89,7 @@ export default function AdminDashboard({ data, loading }) {
               ))}
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
 
       {/* Recent Transactions */}
