@@ -89,7 +89,7 @@ useEffect(() => {
         />
 
         {/* Balance Explanation */}
-        <div className="p-4 bg-slate-800 rounded-lg border border-slate-700">
+        {/* <div className="p-4 bg-slate-800 rounded-lg border border-slate-700">
           <h3 className="text-lg font-semibold text-white mb-2">💡 Balance Explanation</h3>
           <p className="text-slate-300 text-sm">
             Your balance = Total Credits Received - Total Debits Paid
@@ -105,9 +105,9 @@ useEffect(() => {
               Current Status: {isNegative ? 'You owe money (negative balance)' : 'You have money (positive balance)'}
             </p>
           </div>
-        </div>
+        </div> */}
 
-        <StaffDashboard data={dashboardData} loading={loading} onAddTransaction={() => setShowModal(true)} />
+ 
       </div>
 
       {showModal && <TransactionModal isOpen={showModal} onClose={() => setShowModal(false)} role="staff" />}

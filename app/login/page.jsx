@@ -184,7 +184,7 @@ export default function EnhancedLoginPage() {
             </form>
 
             {/* Demo Credentials */}
-            <div className="mt-6 p-4 bg-gradient-to-r from-slate-800/50 to-slate-800/30 border border-slate-700/50 rounded-xl backdrop-blur-sm">
+            {/* <div className="mt-6 p-4 bg-gradient-to-r from-slate-800/50 to-slate-800/30 border border-slate-700/50 rounded-xl backdrop-blur-sm">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center">
                   <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -196,7 +196,7 @@ export default function EnhancedLoginPage() {
                   <p className="text-xs text-slate-400">Any 10-digit phone number and password will work in demo mode</p>
                   <p className="text-xs text-slate-500 mt-1">Backend API: {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}</p>
                 </div>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>
