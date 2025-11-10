@@ -1,6 +1,7 @@
-// server/src/services/dashboardService.js - FIXED FIELD NAMES
+// server/src/services/dashboardService.js - UPDATED for staff balance
 const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
+const User = require('../models/User');
 const logger = require('../utils/logger');
 
 class DashboardService {
@@ -15,37 +16,31 @@ class DashboardService {
         ...filters
       };
 
-      console.log('Admin Dashboard - Match Stage:', JSON.stringify(matchStage));
-
       const summary = await Transaction.aggregate([
         { $match: matchStage },
         {
           $group: {
             _id: null,
-            totalCredits: {  // Changed from totalCredit to totalCredits
+            totalCredits: {
               $sum: { $cond: [{ $eq: ['$type', 'credit'] }, '$finalAmount', 0] }
             },
-            totalDebits: {  // Changed from totalDebit to totalDebits
+            totalDebits: {
               $sum: { $cond: [{ $eq: ['$type', 'debit'] }, '$finalAmount', 0] }
             },
-            commission: { $sum: '$commission' },  // Changed from totalCommission
+            commission: { $sum: '$commission' },
             transactionCount: { $sum: 1 }
           }
         }
       ]);
 
-      const result = summary[0] || {
+      return summary[0] || {
         totalCredits: 0,
         totalDebits: 0,
         commission: 0,
         transactionCount: 0
       };
-
-      console.log('Admin Dashboard - Result:', JSON.stringify(result));
-      return result;
     } catch (error) {
       logger.error('Admin dashboard error:', error);
-      console.error('Admin dashboard error:', error);
       throw error;
     }
   }
@@ -65,37 +60,32 @@ class DashboardService {
         status: 'completed'
       };
 
-      console.log('Client Dashboard - Match Stage:', JSON.stringify(matchStage));
-
       const summary = await Transaction.aggregate([
         { $match: matchStage },
         {
           $group: {
             _id: null,
-            totalCredits: {  // Changed from totalCredit
+            totalCredits: {
               $sum: { $cond: [{ $eq: ['$type', 'credit'] }, '$finalAmount', 0] }
             },
-            totalDebits: {  // Changed from totalDebit
+            totalDebits: {
               $sum: { $cond: [{ $eq: ['$type', 'debit'] }, '$finalAmount', 0] }
             },
-            commission: { $sum: '$commission' },  // Changed from totalCommission
+            commission: { $sum: '$commission' },
             transactionCount: { $sum: 1 }
           }
         }
       ]);
 
-      const result = summary[0] || {
+      return summary[0] || {
         totalCredits: 0,
         totalDebits: 0,
         commission: 0,
-        transactionCount: 0
+        transactionCount: 0,
+        walletBalance: 0  // Always 0 for clients (not used)
       };
-
-      console.log('Client Dashboard - Result:', JSON.stringify(result));
-      return result;
     } catch (error) {
       logger.error('Client dashboard error:', error);
-      console.error('Client dashboard error:', error);
       throw error;
     }
   }
@@ -122,37 +112,37 @@ class DashboardService {
         matchStage.branchId = branchObjectId;
       }
 
-      console.log('Staff Dashboard - Match Stage:', JSON.stringify(matchStage));
-
       const summary = await Transaction.aggregate([
         { $match: matchStage },
         {
           $group: {
             _id: null,
-            totalCredits: {  // Changed from totalCredit
+            totalCredits: {
               $sum: { $cond: [{ $eq: ['$type', 'credit'] }, '$finalAmount', 0] }
             },
-            totalDebits: {  // Changed from totalDebit
+            totalDebits: {
               $sum: { $cond: [{ $eq: ['$type', 'debit'] }, '$finalAmount', 0] }
             },
-            commission: { $sum: '$commission' },  // Changed from totalCommission
+            commission: { $sum: '$commission' },
             transactionCount: { $sum: 1 }
           }
         }
       ]);
 
-      const result = summary[0] || {
-        totalCredits: 0,
-        totalDebits: 0,
-        commission: 0,
-        transactionCount: 0
-      };
+      // CHANGED: Get current staff balance
+      const staff = await User.findById(staffObjectId).select('walletBalance');
 
-      console.log('Staff Dashboard - Result:', JSON.stringify(result));
-      return result;
+      return {
+        ...(summary[0] || {
+          totalCredits: 0,
+          totalDebits: 0,
+          commission: 0,
+          transactionCount: 0
+        }),
+        walletBalance: staff?.walletBalance || 0  // Staff's current balance
+      };
     } catch (error) {
       logger.error('Staff dashboard error:', error);
-      console.error('Staff dashboard error:', error);
       throw error;
     }
   }

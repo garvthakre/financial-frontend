@@ -7,7 +7,7 @@ export default function ClientFormModal({ isOpen, onClose, onSubmit }) {
     name: "",
     phone: "",
     password: "",
-    walletBalance: 50000,
+    // REMOVED: walletBalance field
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -31,7 +31,6 @@ export default function ClientFormModal({ isOpen, onClose, onSubmit }) {
         name: "",
         phone: "",
         password: "",
-        walletBalance: 50000,
       })
     } catch (err) {
       setError(err.message || "Failed to create client")
@@ -41,7 +40,7 @@ export default function ClientFormModal({ isOpen, onClose, onSubmit }) {
   }
 
   const handleChange = (e) => {
-    const { name, value, type } = e.target
+    const { name, value } = e.target
     
     // Only allow digits for phone number
     if (name === 'phone') {
@@ -53,7 +52,7 @@ export default function ClientFormModal({ isOpen, onClose, onSubmit }) {
     } else {
       setFormData((prev) => ({
         ...prev,
-        [name]: type === "number" ? parseFloat(value) : value,
+        [name]: value,
       }))
     }
     setError("")
@@ -122,22 +121,7 @@ export default function ClientFormModal({ isOpen, onClose, onSubmit }) {
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Initial Wallet Balance
-            </label>
-            <input
-              type="number"
-              name="walletBalance"
-              value={formData.walletBalance}
-              onChange={handleChange}
-              min={0}
-              step={1000}
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="50000"
-            />
-            <p className="text-xs text-slate-400 mt-1">Starting balance in the client's wallet</p>
-          </div>
+          {/* REMOVED: Wallet Balance field - no longer needed for clients */}
 
           <div className="flex gap-3 pt-4">
             <button

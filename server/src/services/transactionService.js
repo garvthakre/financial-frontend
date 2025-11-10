@@ -1,4 +1,4 @@
-// server/src/services/transactionService.js - FIXED VERSION
+// server/src/services/transactionService.js - UPDATED: Staff balance tracking
 const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
@@ -9,7 +9,6 @@ const logger = require('../utils/logger');
 
 class TransactionService {
   async processTransaction(data, req) {
-    // Check if replica set is available
     const useTransactions = process.env.USE_TRANSACTIONS === 'true' && 
                            mongoose.connection.db.topology.description.type === 'ReplicaSetWithPrimary';
     
@@ -94,34 +93,35 @@ class TransactionService {
     const depositDeductionRate = settings.depositDeductionRate || 3;
 
     let finalAmount, commission;
-    const balanceBefore = client.walletBalance;
-    let balanceAfter;
+    
+    // CHANGED: Track staff balance instead of client balance
+    const staffBalanceBefore = staff.walletBalance || 0;
+    let staffBalanceAfter;
 
     if (type === 'credit') {
-      // Credit: Amount - 3% deduction
+      // Credit: Client deposits money, staff receives (amount - 3% deduction)
       commission = (amount * depositDeductionRate) / 100;
       finalAmount = amount - commission;
-      balanceAfter = balanceBefore + finalAmount;
+      
+      // Staff balance increases
+      staffBalanceAfter = staffBalanceBefore + finalAmount;
     } else if (type === 'debit') {
-      // Debit: Amount + 3% commission
+      // Debit: Client withdraws money, staff pays out (amount + 3% commission)
       commission = (amount * commissionRate) / 100;
       finalAmount = amount + commission;
       
-      if (balanceBefore < finalAmount) {
-        throw new Error(`Insufficient balance. Available: ₹${balanceBefore}, Required: ₹${finalAmount}`);
-      }
-      
-      balanceAfter = balanceBefore - finalAmount;
+      // Staff balance decreases (can go negative)
+      staffBalanceAfter = staffBalanceBefore - finalAmount;
     } else {
       throw new Error('Invalid transaction type');
     }
 
-    // Update client wallet
-    client.walletBalance = balanceAfter;
+    // CHANGED: Update staff wallet instead of client
+    staff.walletBalance = staffBalanceAfter;
     if (session) {
-      await client.save({ session });
+      await staff.save({ session });
     } else {
-      await client.save();
+      await staff.save();
     }
 
     // Create transaction record
@@ -135,8 +135,8 @@ class TransactionService {
       finalAmount,
       remark: remark || '',
       utrId,
-      balanceBefore,
-      balanceAfter,
+      balanceBefore: staffBalanceBefore,  // Now staff balance
+      balanceAfter: staffBalanceAfter,    // Now staff balance
       status: 'completed'
     };
 
@@ -152,11 +152,11 @@ class TransactionService {
       `transaction_${type}`,
       'transaction',
       transactionDoc._id,
-      { amount, finalAmount, commission, balanceAfter },
+      { amount, finalAmount, commission, staffBalanceAfter },
       req
     );
 
-    logger.info(`Transaction ${type} completed: ${transactionDoc._id}`);
+    logger.info(`Transaction ${type} completed: ${transactionDoc._id}, Staff balance: ${staffBalanceAfter}`);
 
     return transactionDoc;
   }
@@ -164,7 +164,7 @@ class TransactionService {
   async getTransactionById(transactionId) {
     return await Transaction.findById(transactionId)
       .populate('clientId', 'name phone')
-      .populate('staffId', 'name phone')
+      .populate('staffId', 'name phone walletBalance')
       .populate('branchId', 'name code');
   }
 }

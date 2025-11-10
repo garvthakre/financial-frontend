@@ -21,7 +21,7 @@ router.post('/clients', [
   body('name').notEmpty().trim().withMessage('Name is required'),
   body('phone').matches(/^[0-9]{10}$/).withMessage('Valid 10-digit phone number is required'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-  body('walletBalance').optional().isFloat({ min: 0 }).withMessage('Wallet balance must be positive')
+  // REMOVED: walletBalance validation - no longer used for clients
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -33,24 +33,25 @@ router.post('/clients', [
       });
     }
 
-    const { name, phone, password, walletBalance } = req.body;
+    const { name, phone, password } = req.body;  // REMOVED: walletBalance
 
     const userExists = await User.findOne({ phone });
     if (userExists) {
       return res.status(400).json({ success: false, message: 'Phone number already in use' });
     }
 
+    // CHANGED: No wallet balance for clients
     const client = await User.create({
       name,
       phone,
       password,
       role: 'client',
-      walletBalance: walletBalance || 50000,
+      walletBalance: 0,  // Always 0 for clients (not used)
       createdBy: req.user._id
     });
 
     await createAuditLog(req.user._id, 'create_client', 'user', client._id, 
-      { name, phone, walletBalance: client.walletBalance }, req);
+      { name, phone }, req);
 
     logger.info(`Client created: ${client.phone} by admin ${req.user.phone}`);
 
@@ -132,8 +133,6 @@ router.post('/branches', [
     res.status(500).json({ success: false, message: error.message });
   }
 });
-// @route   POST /api/admin/staff
-// @desc    Create staff member (no client/branch assignment yet)
 router.post('/staff', [
   body('name').notEmpty().trim().withMessage('Name is required'),
   body('phone').matches(/^[0-9]{10}$/).withMessage('Valid 10-digit phone number is required'),
@@ -156,11 +155,13 @@ router.post('/staff', [
       return res.status(400).json({ success: false, message: 'Phone number already in use' });
     }
 
+    // CHANGED: Staff starts with 0 balance
     const staff = await User.create({
       name,
       phone,
       password,
       role: 'staff',
+      walletBalance: 0,  // Starts at 0, will change with transactions
       branches: [],
       clientId: null,
       createdBy: req.user._id
@@ -189,7 +190,6 @@ router.post('/staff', [
     res.status(500).json({ success: false, message: error.message });
   }
 });
-
 // @route   POST /api/admin/staff/:staffId/assign-branches
 // @desc    Assign staff to branches (can be from multiple clients)
 router.post('/staff/:staffId/assign-branches', [
