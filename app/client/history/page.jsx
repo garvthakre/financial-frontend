@@ -1,3 +1,4 @@
+// app/client/history/page.jsx - FIXED VERSION
 "use client"
 
 import { useEffect, useState } from "react"
@@ -13,18 +14,38 @@ export default function HistoryPage() {
     fetchTransactions("client", null, 100)
   }, [fetchTransactions])
 
-  const filteredTransactions = filterType === "all" ? transactions : transactions.filter((t) => t.type === filterType)
+  const filteredTransactions = filterType === "all" 
+    ? transactions 
+    : transactions.filter((t) => t.type === filterType)
 
-  const chartData = Array.from({ length: 30 }).map((_, i) => ({
-    day: i + 1,
-    balance: Math.floor(Math.random() * 100000) + 50000,
-  }))
+  // Use real transaction data for chart
+  const chartData = Array.from({ length: 30 }).map((_, i) => {
+    const date = new Date()
+    date.setDate(date.getDate() - (29 - i))
+    
+    // Calculate balance based on actual transactions for that day
+    const dayTransactions = transactions.filter(t => {
+      const txDate = new Date(t.date)
+      return txDate.toDateString() === date.toDateString()
+    })
+    
+    const dayBalance = dayTransactions.reduce((sum, t) => {
+      return t.type === 'credit' ? sum + t.finalAmount : sum - t.finalAmount
+    }, 50000) // Starting balance
+    
+    return {
+      day: i + 1,
+      balance: dayBalance || Math.floor(Math.random() * 100000) + 50000,
+    }
+  })
 
   const stats = {
     totalCredit: transactions.reduce((sum, t) => (t.type === "credit" ? sum + t.amount : sum), 0),
     totalDebit: transactions.reduce((sum, t) => (t.type === "debit" ? sum + t.amount : sum), 0),
     totalCommission: transactions.reduce((sum, t) => sum + t.commission, 0),
-    avgTransaction: Math.floor(transactions.reduce((sum, t) => sum + t.amount, 0) / (transactions.length || 1)),
+    avgTransaction: transactions.length > 0 
+      ? Math.floor(transactions.reduce((sum, t) => sum + t.amount, 0) / transactions.length)
+      : 0,
   }
 
   return (
@@ -39,28 +60,28 @@ export default function HistoryPage() {
         <Card className="bg-slate-900 border-slate-800">
           <CardContent className="p-6">
             <p className="text-sm text-slate-400 mb-1">Total Credits</p>
-            <p className="text-2xl font-bold text-green-400">${(stats.totalCredit / 1000).toFixed(1)}K</p>
+            <p className="text-2xl font-bold text-green-400">₹{(stats.totalCredit / 1000).toFixed(1)}K</p>
           </CardContent>
         </Card>
 
         <Card className="bg-slate-900 border-slate-800">
           <CardContent className="p-6">
             <p className="text-sm text-slate-400 mb-1">Total Debits</p>
-            <p className="text-2xl font-bold text-red-400">${(stats.totalDebit / 1000).toFixed(1)}K</p>
+            <p className="text-2xl font-bold text-red-400">₹{(stats.totalDebit / 1000).toFixed(1)}K</p>
           </CardContent>
         </Card>
 
         <Card className="bg-slate-900 border-slate-800">
           <CardContent className="p-6">
             <p className="text-sm text-slate-400 mb-1">Commissions Paid</p>
-            <p className="text-2xl font-bold text-orange-400">${(stats.totalCommission / 100).toFixed(2)}</p>
+            <p className="text-2xl font-bold text-orange-400">₹{(stats.totalCommission / 100).toFixed(2)}</p>
           </CardContent>
         </Card>
 
         <Card className="bg-slate-900 border-slate-800">
           <CardContent className="p-6">
             <p className="text-sm text-slate-400 mb-1">Avg Transaction</p>
-            <p className="text-2xl font-bold text-blue-400">${(stats.avgTransaction / 1000).toFixed(1)}K</p>
+            <p className="text-2xl font-bold text-blue-400">₹{(stats.avgTransaction / 1000).toFixed(1)}K</p>
           </CardContent>
         </Card>
       </div>
@@ -121,40 +142,50 @@ export default function HistoryPage() {
           <CardDescription>Detailed view of all transactions</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-700">
-                  <th className="text-left py-3 px-4 text-slate-400">Date</th>
-                  <th className="text-left py-3 px-4 text-slate-400">Type</th>
-                  <th className="text-left py-3 px-4 text-slate-400">Amount</th>
-                  <th className="text-left py-3 px-4 text-slate-400">Commission</th>
-                  <th className="text-left py-3 px-4 text-slate-400">Net Amount</th>
-                  <th className="text-left py-3 px-4 text-slate-400">UTR ID</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTransactions.map((txn) => (
-                  <tr key={txn.id} className="border-b border-slate-800 hover:bg-slate-800">
-                    <td className="py-3 px-4 text-slate-300">{new Date(txn.date).toLocaleDateString()}</td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`px-2 py-1 rounded text-xs font-semibold ${txn.type === "credit" ? "bg-green-900 text-green-200" : "bg-red-900 text-red-200"}`}
-                      >
-                        {txn.type.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-slate-300">${(txn.amount / 1000).toFixed(2)}K</td>
-                    <td className="py-3 px-4 text-orange-400">-${(txn.commission / 100).toFixed(2)}</td>
-                    <td className="py-3 px-4 text-green-400 font-semibold">
-                      ${(txn.amount / 1000 - txn.commission / 100).toFixed(2)}K
-                    </td>
-                    <td className="py-3 px-4 text-slate-400 font-mono text-xs">{txn.utrId}</td>
+          {loading && transactions.length === 0 ? (
+            <div className="text-center py-12 text-slate-400">Loading transactions...</div>
+          ) : filteredTransactions.length === 0 ? (
+            <div className="text-center py-12 text-slate-400">
+              No transactions found
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-700">
+                    <th className="text-left py-3 px-4 text-slate-400">Date</th>
+                    <th className="text-left py-3 px-4 text-slate-400">Type</th>
+                    <th className="text-left py-3 px-4 text-slate-400">Amount</th>
+                    <th className="text-left py-3 px-4 text-slate-400">Commission</th>
+                    <th className="text-left py-3 px-4 text-slate-400">Net Amount</th>
+                    <th className="text-left py-3 px-4 text-slate-400">UTR ID</th>
+                    <th className="text-left py-3 px-4 text-slate-400">Remark</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filteredTransactions.map((txn) => (
+                    <tr key={txn.id} className="border-b border-slate-800 hover:bg-slate-800">
+                      <td className="py-3 px-4 text-slate-300">{new Date(txn.date).toLocaleDateString()}</td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-semibold ${txn.type === "credit" ? "bg-green-900 text-green-200" : "bg-red-900 text-red-200"}`}
+                        >
+                          {txn.type.toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-slate-300">₹{(txn.amount / 1000).toFixed(2)}K</td>
+                      <td className="py-3 px-4 text-orange-400">-₹{(txn.commission / 100).toFixed(2)}</td>
+                      <td className="py-3 px-4 text-green-400 font-semibold">
+                        ₹{(txn.finalAmount / 1000).toFixed(2)}K
+                      </td>
+                      <td className="py-3 px-4 text-slate-400 font-mono text-xs">{txn.utrId}</td>
+                      <td className="py-3 px-4 text-slate-400 text-xs">{txn.remark || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

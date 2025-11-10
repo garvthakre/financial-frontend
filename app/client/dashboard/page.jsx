@@ -1,25 +1,10 @@
+// app/client/dashboard/page.jsx - FIXED VERSION
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { useData } from "@/context/DataContext"
+import { useAuth } from "@/context/AuthContext"
 import { TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownRight, DollarSign, Activity } from "lucide-react"
-
-// Mock hook - replace with your actual hook
-const useData = () => ({
-  fetchDashboardData: () => {},
-  dashboardData: {
-    walletBalance: 45000,
-    totalCredits: 32000,
-    totalDebits: 18000,
-    commission: 2400
-  },
-  loading: false,
-  startAutoRefresh: () => {},
-  stopAutoRefresh: () => {}
-})
-
-const useAuth = () => ({
-  user: { name: "John Doe" }
-})
 
 export default function ClientDashboardPage() {
   const { fetchDashboardData, dashboardData, loading, startAutoRefresh, stopAutoRefresh } = useData()
@@ -36,13 +21,21 @@ export default function ClientDashboardPage() {
         stopAutoRefresh()
       }
     }
-  }, [user])
+  }, [user, fetchDashboardData, startAutoRefresh, stopAutoRefresh])
+
+  // Use real data from backend
+  const data = dashboardData || {
+    walletBalance: user?.walletBalance || 0,
+    totalCredits: 0,
+    totalDebits: 0,
+    commission: 0
+  }
 
   const stats = [
     {
       title: "Wallet Balance",
-      value: dashboardData?.walletBalance ? `$${(dashboardData.walletBalance / 1000).toFixed(1)}K` : "$0",
-      rawValue: dashboardData?.walletBalance || 0,
+      value: data.walletBalance ? `₹${(data.walletBalance / 1000).toFixed(1)}K` : "₹0",
+      rawValue: data.walletBalance || 0,
       trend: "+5.2%",
       trendUp: true,
       icon: Wallet,
@@ -53,8 +46,8 @@ export default function ClientDashboardPage() {
     },
     {
       title: "Today's Credits",
-      value: dashboardData?.totalCredits ? `$${(dashboardData.totalCredits / 1000).toFixed(1)}K` : "$0",
-      rawValue: dashboardData?.totalCredits || 0,
+      value: data.totalCredits ? `₹${(data.totalCredits / 1000).toFixed(1)}K` : "₹0",
+      rawValue: data.totalCredits || 0,
       trend: "+8.1%",
       trendUp: true,
       icon: ArrowUpRight,
@@ -65,8 +58,8 @@ export default function ClientDashboardPage() {
     },
     {
       title: "Today's Debits",
-      value: dashboardData?.totalDebits ? `$${(dashboardData.totalDebits / 1000).toFixed(1)}K` : "$0",
-      rawValue: dashboardData?.totalDebits || 0,
+      value: data.totalDebits ? `₹${(data.totalDebits / 1000).toFixed(1)}K` : "₹0",
+      rawValue: data.totalDebits || 0,
       trend: "-3.2%",
       trendUp: false,
       icon: ArrowDownRight,
@@ -77,8 +70,8 @@ export default function ClientDashboardPage() {
     },
     {
       title: "Total Commission",
-      value: dashboardData?.commission ? `$${(dashboardData.commission / 1000).toFixed(1)}K` : "$0",
-      rawValue: dashboardData?.commission || 0,
+      value: data.commission ? `₹${(data.commission / 1000).toFixed(1)}K` : "₹0",
+      rawValue: data.commission || 0,
       trend: "+2.1%",
       trendUp: true,
       icon: DollarSign,
@@ -89,10 +82,18 @@ export default function ClientDashboardPage() {
     },
   ]
 
-  const netFlow = (dashboardData?.totalCredits || 0) - (dashboardData?.totalDebits || 0)
-  const netFlowPercentage = dashboardData?.totalCredits 
-    ? ((netFlow / dashboardData.totalCredits) * 100).toFixed(1)
+  const netFlow = (data.totalCredits || 0) - (data.totalDebits || 0)
+  const netFlowPercentage = data.totalCredits 
+    ? ((netFlow / data.totalCredits) * 100).toFixed(1)
     : 0
+
+  if (loading && !dashboardData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+        <div className="text-white text-xl">Loading dashboard...</div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 sm:p-8">
@@ -177,7 +178,7 @@ export default function ClientDashboardPage() {
               <div>
                 <p className="text-sm text-slate-400 mb-1">Net Position</p>
                 <p className={`text-4xl font-bold ${netFlow >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                  {netFlow >= 0 ? '+' : ''}{(netFlow / 1000).toFixed(1)}K
+                  {netFlow >= 0 ? '+' : ''}₹{(netFlow / 1000).toFixed(1)}K
                 </p>
               </div>
               <div className="text-right">
@@ -192,13 +193,13 @@ export default function ClientDashboardPage() {
             <div className="relative h-16 bg-slate-700/30 rounded-xl overflow-hidden">
               <div 
                 className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-500 to-cyan-500"
-                style={{ width: `${(dashboardData?.totalCredits / (dashboardData?.totalCredits + dashboardData?.totalDebits)) * 100}%` }}
+                style={{ width: `${(data.totalCredits / (data.totalCredits + data.totalDebits)) * 100}%` }}
               >
                 <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
               </div>
               <div 
                 className="absolute right-0 top-0 h-full bg-gradient-to-l from-rose-500 to-pink-500"
-                style={{ width: `${(dashboardData?.totalDebits / (dashboardData?.totalCredits + dashboardData?.totalDebits)) * 100}%` }}
+                style={{ width: `${(data.totalDebits / (data.totalCredits + data.totalDebits)) * 100}%` }}
               ></div>
               <div className="absolute inset-0 flex items-center justify-center">
                 <p className="text-white font-bold text-sm drop-shadow-lg">
@@ -210,11 +211,11 @@ export default function ClientDashboardPage() {
             <div className="flex justify-between text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                <span className="text-slate-400">Credits: {(dashboardData?.totalCredits / 1000).toFixed(1)}K</span>
+                <span className="text-slate-400">Credits: ₹{(data.totalCredits / 1000).toFixed(1)}K</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-rose-500"></div>
-                <span className="text-slate-400">Debits: {(dashboardData?.totalDebits / 1000).toFixed(1)}K</span>
+                <span className="text-slate-400">Debits: ₹{(data.totalDebits / 1000).toFixed(1)}K</span>
               </div>
             </div>
           </div>
@@ -228,7 +229,7 @@ export default function ClientDashboardPage() {
             <div className="p-4 rounded-xl bg-slate-700/30">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-sm text-slate-400">Avg. Transaction</span>
-                <span className="text-lg font-bold text-white">$2.4K</span>
+                <span className="text-lg font-bold text-white">₹2.4K</span>
               </div>
               <div className="h-1 bg-slate-600 rounded-full overflow-hidden">
                 <div className="h-full w-3/4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"></div>
