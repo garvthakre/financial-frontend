@@ -1,6 +1,5 @@
-// app/lib/api.js - Fixed version with proper token handling
+// app/lib/api.js - UPDATED with staff assignment endpoints
 
-// API base URL - update this to your backend URL
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
 
 class ApiClient {
@@ -9,7 +8,6 @@ class ApiClient {
   }
 
   getHeaders() {
-    // Check if window is defined (client-side only)
     if (typeof window === 'undefined') {
       return {
         'Content-Type': 'application/json'
@@ -38,13 +36,10 @@ class ApiClient {
       const data = await response.json()
 
       if (!response.ok) {
-        // Handle unauthorized errors
         if (response.status === 401) {
-          // Clear invalid token
           if (typeof window !== 'undefined') {
             localStorage.removeItem('token')
             localStorage.removeItem('user')
-            // Redirect to login
             window.location.href = '/login'
           }
         }
@@ -65,12 +60,11 @@ class ApiClient {
       body: JSON.stringify(credentials)
     })
     
-    // Store token and user data on successful login
     if (response.success && response.data) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('token', response.data.token)
         const userData = { ...response.data }
-        delete userData.token // Don't store token twice
+        delete userData.token
         localStorage.setItem('user', JSON.stringify(userData))
       }
     }
@@ -78,41 +72,7 @@ class ApiClient {
     return response
   }
 
-  async register(userData) {
-    return this.request('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData)
-    })
-  }
-
-  // Admin endpoints
-  async getAdminDashboard(params = {}) {
-    const query = new URLSearchParams(params).toString()
-    return this.request(`/admin/dashboard${query ? `?${query}` : ''}`)
-  }
-
-  async getClients() {
-    return this.request('/admin/clients')
-  }
-
-  async createClient(clientData) {
-    return this.request('/admin/clients', {
-      method: 'POST',
-      body: JSON.stringify(clientData)
-    })
-  }
-
-  async getBranches() {
-    return this.request('/admin/branches')
-  }
-
-  async createBranch(branchData) {
-    return this.request('/admin/branches', {
-      method: 'POST',
-      body: JSON.stringify(branchData)
-    })
-  }
-
+  // Staff endpoints
   async getStaff() {
     return this.request('/admin/staff')
   }
@@ -124,38 +84,49 @@ class ApiClient {
     })
   }
 
-  async getAdminTransactions(params = {}) {
-    const query = new URLSearchParams(params).toString()
-    return this.request(`/admin/transactions${query ? `?${query}` : ''}`)
+  async assignStaffToBranches(staffId, branchIds) {
+    return this.request(`/admin/staff/${staffId}/assign-branches`, {
+      method: 'POST',
+      body: JSON.stringify({ branchIds })
+    })
+  }
+
+  async removeStaffFromBranch(staffId, branchId) {
+    return this.request(`/admin/staff/${staffId}/remove-branch/${branchId}`, {
+      method: 'DELETE'
+    })
+  }
+
+  async getUnassignedStaff() {
+    return this.request('/admin/staff/unassigned')
+  }
+
+  async getBranchStaff(branchId) {
+    return this.request(`/admin/branches/${branchId}/staff`)
+  }
+
+  // Branch endpoints
+  async getBranches() {
+    return this.request('/admin/branches')
+  }
+
+  async createBranch(branchData) {
+    return this.request('/admin/branches', {
+      method: 'POST',
+      body: JSON.stringify(branchData)
+    })
   }
 
   // Client endpoints
-  async getClientDashboard() {
-    return this.request('/client/dashboard')
+  async getClients() {
+    return this.request('/admin/clients')
   }
 
-  async getClientTransactions(params = {}) {
-    const query = new URLSearchParams(params).toString()
-    return this.request(`/client/transactions${query ? `?${query}` : ''}`)
-  }
-
-  async getClientBranches() {
-    return this.request('/client/branches')
-  }
-
-  // Staff endpoints
-  async getStaffDashboard(params = {}) {
-    const query = new URLSearchParams(params).toString()
-    return this.request(`/staff/dashboard${query ? `?${query}` : ''}`)
-  }
-
-  async getStaffTransactions(params = {}) {
-    const query = new URLSearchParams(params).toString()
-    return this.request(`/staff/transactions${query ? `?${query}` : ''}`)
-  }
-
-  async getStaffBranches() {
-    return this.request('/staff/branches')
+  async createClient(clientData) {
+    return this.request('/admin/clients', {
+      method: 'POST',
+      body: JSON.stringify(clientData)
+    })
   }
 
   // Transaction endpoints
@@ -170,7 +141,38 @@ class ApiClient {
     return this.request(`/transactions/${id}`)
   }
 
-  // Settings endpoints
+  // Dashboard endpoints
+  async getAdminDashboard(params = {}) {
+    const query = new URLSearchParams(params).toString()
+    return this.request(`/admin/dashboard${query ? `?${query}` : ''}`)
+  }
+
+  async getClientDashboard() {
+    return this.request('/client/dashboard')
+  }
+
+  async getStaffDashboard(params = {}) {
+    const query = new URLSearchParams(params).toString()
+    return this.request(`/staff/dashboard${query ? `?${query}` : ''}`)
+  }
+
+  // Transaction lists
+  async getAdminTransactions(params = {}) {
+    const query = new URLSearchParams(params).toString()
+    return this.request(`/admin/transactions${query ? `?${query}` : ''}`)
+  }
+
+  async getClientTransactions(params = {}) {
+    const query = new URLSearchParams(params).toString()
+    return this.request(`/client/transactions${query ? `?${query}` : ''}`)
+  }
+
+  async getStaffTransactions(params = {}) {
+    const query = new URLSearchParams(params).toString()
+    return this.request(`/staff/transactions${query ? `?${query}` : ''}`)
+  }
+
+  // Settings
   async getSettings() {
     return this.request('/admin/settings')
   }

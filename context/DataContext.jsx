@@ -148,20 +148,7 @@ export function DataProvider({ children }) {
     }
   }, [])
 
-  const fetchStaff = useCallback(async () => {
-    setLoading(true)
-    try {
-      const response = await api.getStaff()
-      if (response?.success) {
-        setStaff(response.data || [])
-      }
-    } catch (error) {
-      console.error('Failed to fetch staff:', error)
-      setStaff([])
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+ 
 
   const addClient = useCallback(async (clientData) => {
     try {
@@ -191,9 +178,30 @@ export function DataProvider({ children }) {
     }
   }, [fetchBranches])
 
+ 
+    const fetchStaff = useCallback(async () => {
+    setLoading(true)
+    try {
+      const response = await api.getStaff()
+      if (response?.success) {
+        setStaff(response.data || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch staff:', error)
+      setStaff([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   const addStaff = useCallback(async (staffData) => {
     try {
-      const response = await api.createStaff(staffData)
+      // Only send basic staff info, no branch assignment yet
+      const response = await api.createStaff({
+        name: staffData.name,
+        phone: staffData.phone,
+        password: staffData.password
+      })
       if (response?.success) {
         await fetchStaff()
         return { success: true }
@@ -202,6 +210,34 @@ export function DataProvider({ children }) {
     } catch (error) {
       console.error('Failed to add staff:', error)
       return { success: false, message: error.message || 'Failed to create staff' }
+    }
+  }, [fetchStaff])
+
+  const assignStaffToBranches = useCallback(async (staffId, branchIds) => {
+    try {
+      const response = await api.assignStaffToBranches(staffId, branchIds)
+      if (response?.success) {
+        await fetchStaff() // Refresh staff list
+        return { success: true }
+      }
+      return { success: false, message: response?.message || 'Failed to assign branches' }
+    } catch (error) {
+      console.error('Failed to assign branches:', error)
+      return { success: false, message: error.message || 'Failed to assign branches' }
+    }
+  }, [fetchStaff])
+
+  const removeStaffFromBranch = useCallback(async (staffId, branchId) => {
+    try {
+      const response = await api.removeStaffFromBranch(staffId, branchId)
+      if (response?.success) {
+        await fetchStaff()
+        return { success: true }
+      }
+      return { success: false, message: response?.message || 'Failed to remove staff from branch' }
+    } catch (error) {
+      console.error('Failed to remove staff from branch:', error)
+      return { success: false, message: error.message || 'Failed to remove staff from branch' }
     }
   }, [fetchStaff])
 
@@ -253,6 +289,8 @@ export function DataProvider({ children }) {
         addClient,
         addBranch,
         addStaff,
+        assignStaffToBranches,
+        removeStaffFromBranch,
         addTransaction,
         startAutoRefresh,
         stopAutoRefresh,

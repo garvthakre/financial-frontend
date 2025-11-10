@@ -1,3 +1,4 @@
+// server/src/models/User.js - UPDATED for multi-client staff support
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
@@ -29,11 +30,14 @@ const userSchema = new mongoose.Schema({
     default: 0,
     min: 0
   },
+  // For clients: Not used
+  // For staff: Can be null (staff works for multiple clients through branches)
   clientId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     default: null
   },
+  // For staff: Array of branches they can access (can be from different clients)
   branches: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Branch'
@@ -50,10 +54,12 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Only phone index needed
+// Indexes
 userSchema.index({ phone: 1 }, { unique: true });
 userSchema.index({ role: 1 });
+userSchema.index({ branches: 1 }); // For efficient staff queries
 
+// Hash password before saving
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) {
     return next();
@@ -63,8 +69,17 @@ userSchema.pre('save', async function(next) {
   next();
 });
 
+// Method to compare password
 userSchema.methods.matchPassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
+
+// Virtual to get unique clients the staff works for
+userSchema.virtual('clientsWorkedFor', {
+  ref: 'Branch',
+  localField: 'branches',
+  foreignField: '_id',
+  justOne: false
+});
 
 module.exports = mongoose.model('User', userSchema);

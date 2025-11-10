@@ -132,14 +132,12 @@ router.post('/branches', [
     res.status(500).json({ success: false, message: error.message });
   }
 });
-
 // @route   POST /api/admin/staff
+// @desc    Create staff member (no client/branch assignment yet)
 router.post('/staff', [
   body('name').notEmpty().trim().withMessage('Name is required'),
   body('phone').matches(/^[0-9]{10}$/).withMessage('Valid 10-digit phone number is required'),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-  body('branches').isArray().withMessage('Branches must be an array'),
-  body('clientId').isMongoId().withMessage('Valid client ID is required')
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -151,23 +149,11 @@ router.post('/staff', [
       });
     }
 
-    const { name, phone, password, branches, clientId } = req.body;
+    const { name, phone, password } = req.body;
 
     const userExists = await User.findOne({ phone });
     if (userExists) {
       return res.status(400).json({ success: false, message: 'Phone number already in use' });
-    }
-
-    const client = await User.findById(clientId);
-    if (!client || client.role !== 'client') {
-      return res.status(400).json({ success: false, message: 'Invalid client ID' });
-    }
-
-    if (branches && branches.length > 0) {
-      const branchCount = await Branch.countDocuments({ _id: { $in: branches } });
-      if (branchCount !== branches.length) {
-        return res.status(400).json({ success: false, message: 'One or more invalid branch IDs' });
-      }
     }
 
     const staff = await User.create({
@@ -175,27 +161,23 @@ router.post('/staff', [
       phone,
       password,
       role: 'staff',
-      branches: branches || [],
-      clientId,
+      branches: [],
+      clientId: null,
       createdBy: req.user._id
     });
 
-    if (branches && branches.length > 0) {
-      await Branch.updateMany(
-        { _id: { $in: branches } },
-        { $addToSet: { staffMembers: staff._id } }
-      );
-    }
+    await createAuditLog(req.user._id, 'create_staff', 'user', staff._id, 
+      { name, phone }, req);
+
+    logger.info(`Staff created: ${staff.phone} by admin ${req.user.phone}`);
 
     const populatedStaff = await User.findById(staff._id)
       .select('-password')
-      .populate('branches', 'name code')
-      .populate('clientId', 'name phone');
-
-    await createAuditLog(req.user._id, 'create_staff', 'user', staff._id, 
-      { name, phone, branches }, req);
-
-    logger.info(`Staff created: ${staff.phone} by admin ${req.user.phone}`);
+      .populate('branches', 'name code clientId')
+      .populate({
+        path: 'branches',
+        populate: { path: 'clientId', select: 'name phone' }
+      });
 
     res.status(201).json({
       success: true,
@@ -204,6 +186,181 @@ router.post('/staff', [
     });
   } catch (error) {
     logger.error('Create staff error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   POST /api/admin/staff/:staffId/assign-branches
+// @desc    Assign staff to branches (can be from multiple clients)
+router.post('/staff/:staffId/assign-branches', [
+  body('branchIds').isArray().withMessage('Branch IDs must be an array'),
+  body('branchIds.*').isMongoId().withMessage('Invalid branch ID')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ 
+        success: false, 
+        message: errors.array()[0].msg,
+        errors: errors.array() 
+      });
+    }
+
+    const { staffId } = req.params;
+    const { branchIds } = req.body;
+
+    const staff = await User.findById(staffId);
+    if (!staff || staff.role !== 'staff') {
+      return res.status(404).json({ success: false, message: 'Staff member not found' });
+    }
+
+    // Verify all branches exist
+    const branches = await Branch.find({ _id: { $in: branchIds } });
+    if (branches.length !== branchIds.length) {
+      return res.status(400).json({ success: false, message: 'One or more invalid branch IDs' });
+    }
+
+    // Remove staff from old branches
+    await Branch.updateMany(
+      { staffMembers: staffId },
+      { $pull: { staffMembers: staffId } }
+    );
+
+    // Add staff to new branches
+    await Branch.updateMany(
+      { _id: { $in: branchIds } },
+      { $addToSet: { staffMembers: staffId } }
+    );
+
+    // Update staff document
+    staff.branches = branchIds;
+    await staff.save();
+
+    const populatedStaff = await User.findById(staffId)
+      .select('-password')
+      .populate({
+        path: 'branches',
+        populate: { path: 'clientId', select: 'name phone' }
+      });
+
+    await createAuditLog(req.user._id, 'assign_branches', 'user', staff._id, 
+      { branchIds }, req);
+
+    logger.info(`Staff ${staff.phone} assigned to ${branchIds.length} branches by admin ${req.user.phone}`);
+
+    res.json({
+      success: true,
+      message: 'Branches assigned successfully',
+      data: populatedStaff
+    });
+  } catch (error) {
+    logger.error('Assign branches error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/admin/staff
+// @desc    Get all staff members with their branch assignments
+router.get('/staff', async (req, res) => {
+  try {
+    const staff = await User.find({ role: 'staff' })
+      .select('-password')
+      .populate({
+        path: 'branches',
+        populate: { path: 'clientId', select: 'name phone' }
+      })
+      .sort({ createdAt: -1 });
+    
+    res.json({
+      success: true,
+      count: staff.length,
+      data: staff
+    });
+  } catch (error) {
+    logger.error('Get staff error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/admin/staff/unassigned
+// @desc    Get staff members not assigned to any branch
+router.get('/staff/unassigned', async (req, res) => {
+  try {
+    const staff = await User.find({ 
+      role: 'staff',
+      $or: [
+        { branches: { $exists: false } },
+        { branches: { $size: 0 } }
+      ]
+    })
+      .select('-password')
+      .sort({ createdAt: -1 });
+    
+    res.json({
+      success: true,
+      count: staff.length,
+      data: staff
+    });
+  } catch (error) {
+    logger.error('Get unassigned staff error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/admin/branches/:branchId/staff
+// @desc    Get all staff assigned to a specific branch
+router.get('/branches/:branchId/staff', async (req, res) => {
+  try {
+    const { branchId } = req.params;
+
+    const branch = await Branch.findById(branchId)
+      .populate('staffMembers', 'name phone');
+
+    if (!branch) {
+      return res.status(404).json({ success: false, message: 'Branch not found' });
+    }
+
+    res.json({
+      success: true,
+      data: branch.staffMembers
+    });
+  } catch (error) {
+    logger.error('Get branch staff error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   DELETE /api/admin/staff/:staffId/remove-branch/:branchId
+// @desc    Remove staff from a specific branch
+router.delete('/staff/:staffId/remove-branch/:branchId', async (req, res) => {
+  try {
+    const { staffId, branchId } = req.params;
+
+    const staff = await User.findById(staffId);
+    if (!staff || staff.role !== 'staff') {
+      return res.status(404).json({ success: false, message: 'Staff member not found' });
+    }
+
+    // Remove branch from staff
+    staff.branches = staff.branches.filter(b => b.toString() !== branchId);
+    await staff.save();
+
+    // Remove staff from branch
+    await Branch.findByIdAndUpdate(branchId, {
+      $pull: { staffMembers: staffId }
+    });
+
+    await createAuditLog(req.user._id, 'remove_branch', 'user', staff._id, 
+      { branchId }, req);
+
+    logger.info(`Staff ${staff.phone} removed from branch ${branchId} by admin ${req.user.phone}`);
+
+    res.json({
+      success: true,
+      message: 'Staff removed from branch successfully'
+    });
+  } catch (error) {
+    logger.error('Remove branch error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -491,7 +648,4 @@ router.put('/users/:id/status', async (req, res) => {
 });
 
 module.exports = router;
-
-// Also fix server/src/routes/staffRoutes.js:
-// Change line: const staffObjectId = mongoose.Types.ObjectId(req.user._id)
-// To: const staffObjectId = new mongoose.Types.ObjectId(req.user._id)
+ 
