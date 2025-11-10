@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
+import Image from "next/image"
 
 export default function EnhancedLoginPage() {
   const [phone, setPhone] = useState("")
@@ -19,31 +20,27 @@ export default function EnhancedLoginPage() {
     setError("")
 
     try {
-      // Try real authentication first
       const result = await login({ phone, password })
-      
       if (result.success) {
-        // Get user from localStorage to determine role
-        const userData = JSON.parse(localStorage.getItem('user'))
+        const userData = JSON.parse(localStorage.getItem("user"))
         const routes = {
           admin: "/admin/dashboard",
           staff: "/staff/dashboard",
-          client: "/client/dashboard"
-        }
+          client: "/client/dashboard",
+        } 
         router.push(routes[userData.role])
       } else {
-        setError(result.message || 'Login failed')
+        setError(result.message || "Login failed")
       }
     } catch (error) {
-      console.error('Login error:', error)
-      setError('Login failed. Using demo mode.')
-      
-      // Fallback to mock login for demo
+      console.error("Login error:", error)
+      setError("Login failed. Using demo mode.")
+
       const mockUser = {
         id: "1",
         phone,
         name: phone,
-        role: "staff", // Default to staff for demo
+        role: "staff",
         branches: ["branch-1", "branch-2"],
         currentBranch: "branch-1",
       }
@@ -60,7 +57,10 @@ export default function EnhancedLoginPage() {
       {/* Animated Background Gradients */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-blue-600/20 via-purple-600/20 to-transparent rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-600/20 via-blue-600/20 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div
+          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-cyan-600/20 via-blue-600/20 to-transparent rounded-full blur-3xl animate-pulse"
+          style={{ animationDelay: "1s" }}
+        ></div>
       </div>
 
       {/* Grid Pattern Overlay */}
@@ -70,10 +70,31 @@ export default function EnhancedLoginPage() {
       <div className="relative z-10 w-full max-w-md">
         {/* Logo/Brand Section */}
         <div className="text-center mb-8 space-y-2">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600 to-purple-600 shadow-2xl shadow-blue-500/50 mb-4 relative">
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-400 to-purple-400 blur-xl opacity-50 animate-pulse"></div>
-            <span className="text-4xl relative z-10">💎</span>
+          {/* Logo without box, larger, with glow and sheen */}
+          <div className="relative mx-auto mb-4 w-28 h-28 sm:w-32 sm:h-32 group">
+            {/* Soft glow aura */}
+            <div className="absolute -inset-4 rounded-full bg-gradient-to-tr from-blue-500/20 via-purple-500/15 to-cyan-500/15 blur-3xl opacity-70 group-hover:opacity-90 transition-opacity duration-500"></div>
+
+            {/* Rotating sheen */}
+            <div className="pointer-events-none absolute inset-0 rounded-full overflow-hidden">
+              <div className="absolute -inset-10 rounded-full bg-[conic-gradient(from_0deg,transparent_0deg,rgba(59,130,246,0.15)_40deg,transparent_80deg)] group-hover:animate-[spin_6s_linear_infinite]"></div>
+            </div>
+
+            {/* Circular logo itself */}
+            <div className="relative w-full h-full rounded-full overflow-hidden ring-1 ring-white/10 group-hover:ring-blue-400/30 transition-all duration-500 ease-out">
+              <Image
+                src="/logo.png"
+                alt="Mahadev Pay logo"
+                width={128}
+                height={128}
+                priority
+                className="size-full rounded-full object-cover select-none
+                           transition-transform duration-500 ease-out
+                           group-hover:scale-105"
+              />
+            </div>
           </div>
+
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
             MAHADEV PAY
           </h1>
@@ -84,7 +105,7 @@ export default function EnhancedLoginPage() {
         <div className="relative group">
           {/* Glow Effect */}
           <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 rounded-2xl blur opacity-30 group-hover:opacity-50 transition duration-1000"></div>
-          
+
           {/* Card */}
           <div className="relative backdrop-blur-xl bg-slate-900/80 border border-slate-800/50 rounded-2xl shadow-2xl p-8">
             <form onSubmit={handleLogin} className="space-y-6">
@@ -107,10 +128,10 @@ export default function EnhancedLoginPage() {
                   <input
                     type="tel"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
                     placeholder="9876543210"
                     required
-                    maxLength="10"
+                    maxLength={10}
                     pattern="[0-9]{10}"
                     className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300"
                   />
@@ -182,22 +203,6 @@ export default function EnhancedLoginPage() {
                 </div>
               </button>
             </form>
-
-            {/* Demo Credentials */}
-            {/* <div className="mt-6 p-4 bg-gradient-to-r from-slate-800/50 to-slate-800/30 border border-slate-700/50 rounded-xl backdrop-blur-sm">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-300 mb-1">Demo Credentials</p>
-                  <p className="text-xs text-slate-400">Any 10-digit phone number and password will work in demo mode</p>
-                  <p className="text-xs text-slate-500 mt-1">Backend API: {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}</p>
-                </div>
-              </div> */}
-            </div>
           </div>
         </div>
       </div>
