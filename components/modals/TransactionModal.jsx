@@ -3,13 +3,16 @@
 import { useState, useEffect } from "react"
 import { useData } from "@/context/DataContext"
 import { useAuth } from "@/context/AuthContext"
+import api from "@/app/lib/api"
 
 export default function TransactionModal({ isOpen, onClose, role }) {
-  const { clients, branches, fetchClients, fetchBranches, addTransaction, fetchDashboardData, fetchTransactions } = useData()
+  const { clients, addTransaction, fetchDashboardData, fetchTransactions } = useData()
   const { user } = useAuth()
   const [loading, setLoading] = useState(false)
+  const [loadingBranches, setLoadingBranches] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [staffBranches, setStaffBranches] = useState([])
   
   const [formData, setFormData] = useState({
     clientId: "",
@@ -20,46 +23,45 @@ export default function TransactionModal({ isOpen, onClose, role }) {
     remark: "",
   })
 
-  // Fetch branches on modal open if not already loaded
+  // Fetch staff branches directly when modal opens
   useEffect(() => {
-    if (isOpen && branches.length === 0) {
-      console.log('Fetching branches for transaction modal...')
-      fetchBranches()
-    }
-  }, [isOpen, branches.length, fetchBranches])
-
-  // Initialize form data with user's client and current branch
-  useEffect(() => {
-    if (isOpen && user && branches.length > 0) {
-      // For staff: Get client from first assigned branch
-      let clientId = ""
-      let branchId = ""
-      
-      if (user.role === 'staff' && user.branches && user.branches.length > 0) {
-        // Get the first branch or current branch
-        branchId = user.currentBranch || user.branches[0]
-        
-        // Find the branch to get its client
-        const branch = branches.find(b => b._id === branchId || b._id === branchId._id)
-        console.log('Found branch for staff:', branch)
-        if (branch) {
-          clientId = branch.clientId?._id || branch.clientId || ""
+    const loadStaffBranches = async () => {
+      if (isOpen && user && user.role === 'staff') {
+        setLoadingBranches(true)
+        try {
+          console.log('Loading staff branches...')
+          const response = await api.request('/staff/branches')
+          console.log('Staff branches response:', response)
+          
+          if (response?.success) {
+            setStaffBranches(response.data || [])
+            
+            // Auto-select first branch and its client
+            if (response.data && response.data.length > 0) {
+              const firstBranch = response.data[0]
+              const branchId = firstBranch._id
+              const clientId = firstBranch.clientId?._id || firstBranch.clientId
+              
+              console.log('Auto-selecting:', { branchId, clientId })
+              
+              setFormData(prev => ({
+                ...prev,
+                branchId,
+                clientId
+              }))
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load staff branches:', error)
+          setError('Failed to load branches. Please try again.')
+        } finally {
+          setLoadingBranches(false)
         }
-      } else if (user.clientId) {
-        clientId = user.clientId._id || user.clientId
-      }
-      
-      console.log('Initializing form with:', { clientId, branchId, role: user.role, branchesCount: branches.length })
-      
-      if (clientId && branchId) {
-        setFormData(prev => ({
-          ...prev,
-          clientId,
-          branchId
-        }))
       }
     }
-  }, [isOpen, user, branches])
+
+    loadStaffBranches()
+  }, [isOpen, user])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -121,8 +123,8 @@ export default function TransactionModal({ isOpen, onClose, role }) {
               onClose()
               // Reset form
               setFormData({
-                clientId: user?.clientId?._id || user?.clientId || "",
-                branchId: user?.branches?.[0]?._id || user?.branches?.[0] || "",
+                clientId: "",
+                branchId: "",
                 type: "credit",
                 amount: "",
                 utrId: "",
@@ -136,8 +138,8 @@ export default function TransactionModal({ isOpen, onClose, role }) {
             setTimeout(() => {
               onClose()
               setFormData({
-                clientId: user?.clientId?._id || user?.clientId || "",
-                branchId: user?.branches?.[0]?._id || user?.branches?.[0] || "",
+                clientId: "",
+                branchId: "",
                 type: "credit",
                 amount: "",
                 utrId: "",
@@ -160,16 +162,26 @@ export default function TransactionModal({ isOpen, onClose, role }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target
+    
+    // When branch changes, update client ID too
+    if (name === 'branchId') {
+      const selectedBranch = staffBranches.find(b => b._id === value)
+      if (selectedBranch) {
+        const clientId = selectedBranch.clientId?._id || selectedBranch.clientId
+        setFormData((prev) => ({
+          ...prev,
+          branchId: value,
+          clientId
+        }))
+        return
+      }
+    }
+    
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }))
   }
-
-  // Filter branches based on staff's assigned branches
-  const availableBranches = user && user.branches
-    ? branches.filter((b) => user.branches.includes(b._id) || user.branches.includes(b._id._id))
-    : branches
 
   // Calculate commission preview
   const calculatePreview = () => {
@@ -180,13 +192,13 @@ export default function TransactionModal({ isOpen, onClose, role }) {
       return {
         commission,
         finalAmount: amount - commission,
-        display: `Client receives: ₹${(amount - commission).toFixed(2)} (₹${amount.toFixed(2)} - ₹${commission.toFixed(2)} fee)`
+        display: `You will receive: ₹${(amount - commission).toFixed(2)} (₹${amount.toFixed(2)} - ₹${commission.toFixed(2)} fee)`
       }
     } else {
       return {
         commission,
         finalAmount: amount + commission,
-        display: `Client pays: ₹${(amount + commission).toFixed(2)} (₹${amount.toFixed(2)} + ₹${commission.toFixed(2)} commission)`
+        display: `You will pay: ₹${(amount + commission).toFixed(2)} (₹${amount.toFixed(2)} + ₹${commission.toFixed(2)} commission)`
       }
     }
   }
@@ -211,10 +223,16 @@ export default function TransactionModal({ isOpen, onClose, role }) {
             {success}
           </div>
         )}
+
+        {loadingBranches && (
+          <div className="mb-4 p-3 bg-blue-900/50 border border-blue-700 rounded-lg text-blue-200 text-sm">
+            Loading branches...
+          </div>
+        )}
         
         <div className="space-y-4">
           {/* Show branch selector for staff with multiple assignments */}
-          {availableBranches.length > 1 && (
+          {staffBranches.length > 1 && (
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
                 Select Branch *
@@ -227,12 +245,25 @@ export default function TransactionModal({ isOpen, onClose, role }) {
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Choose branch...</option>
-                {availableBranches.map((branch) => (
+                {staffBranches.map((branch) => (
                   <option key={branch._id} value={branch._id}>
-                    {branch.name} ({branch.code})
+                    {branch.name} ({branch.code}) - {branch.clientId?.name || 'Unknown Client'}
                   </option>
                 ))}
               </select>
+            </div>
+          )}
+
+          {/* Show selected branch info for single branch */}
+          {staffBranches.length === 1 && (
+            <div className="p-3 bg-slate-700 rounded-lg border border-slate-600">
+              <p className="text-xs text-slate-400 mb-1">Branch</p>
+              <p className="text-sm font-semibold text-white">
+                {staffBranches[0].name} ({staffBranches[0].code})
+              </p>
+              <p className="text-xs text-slate-400 mt-1">
+                Client: {staffBranches[0].clientId?.name || 'Unknown'}
+              </p>
             </div>
           )}
 
@@ -321,7 +352,7 @@ export default function TransactionModal({ isOpen, onClose, role }) {
             <button
               type="button"
               onClick={onClose}
-              disabled={loading}
+              disabled={loading || loadingBranches}
               className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition disabled:opacity-50"
             >
               Cancel
@@ -329,10 +360,10 @@ export default function TransactionModal({ isOpen, onClose, role }) {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={loading || !formData.clientId || !formData.branchId}
+              disabled={loading || loadingBranches || !formData.clientId || !formData.branchId}
               className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Processing..." : (!formData.clientId || !formData.branchId) ? "Loading..." : "Create Transaction"}
+              {loading ? "Processing..." : loadingBranches ? "Loading..." : "Create Transaction"}
             </button>
           </div>
         </div>
