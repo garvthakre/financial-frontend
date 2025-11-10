@@ -276,64 +276,64 @@ router.delete('/branches/:id', async (req, res) => {
 
 // @route   DELETE /api/admin/transactions/:id
 // @desc    Delete transaction (hard delete with balance reversal)
-router.delete('/transactions/:id', async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+// router.delete('/transactions/:id', async (req, res) => {
+//   const session = await mongoose.startSession();
+//   session.startTransaction();
 
-  try {
-    const transaction = await Transaction.findById(req.params.id).session(session);
+//   try {
+//     const transaction = await Transaction.findById(req.params.id).session(session);
     
-    if (!transaction) {
-      await session.abortTransaction();
-      return res.status(404).json({ success: false, message: 'Transaction not found' });
-    }
+//     if (!transaction) {
+//       await session.abortTransaction();
+//       return res.status(404).json({ success: false, message: 'Transaction not found' });
+//     }
 
-    // Get staff member
-    const staff = await User.findById(transaction.staffId).session(session);
-    if (!staff) {
-      await session.abortTransaction();
-      return res.status(404).json({ success: false, message: 'Staff member not found' });
-    }
+//     // Get staff member
+//     const staff = await User.findById(transaction.staffId).session(session);
+//     if (!staff) {
+//       await session.abortTransaction();
+//       return res.status(404).json({ success: false, message: 'Staff member not found' });
+//     }
 
-    // Reverse the balance change
-    if (transaction.type === 'credit') {
-      // Was: staff balance increased by finalAmount
-      // Reverse: decrease staff balance
-      staff.walletBalance -= transaction.finalAmount;
-    } else if (transaction.type === 'debit') {
-      // Was: staff balance decreased by finalAmount
-      // Reverse: increase staff balance
-      staff.walletBalance += transaction.finalAmount;
-    }
+//     // Reverse the balance change
+//     if (transaction.type === 'credit') {
+//       // Was: staff balance increased by finalAmount
+//       // Reverse: decrease staff balance
+//       staff.walletBalance -= transaction.finalAmount;
+//     } else if (transaction.type === 'debit') {
+//       // Was: staff balance decreased by finalAmount
+//       // Reverse: increase staff balance
+//       staff.walletBalance += transaction.finalAmount;
+//     }
 
-    await staff.save({ session });
+//     await staff.save({ session });
 
-    // Delete the transaction
-    await Transaction.findByIdAndDelete(transaction._id).session(session);
+//     // Delete the transaction
+//     await Transaction.findByIdAndDelete(transaction._id).session(session);
 
-    await createAuditLog(req.user._id, 'delete_transaction', 'transaction', transaction._id, 
-      { 
-        type: transaction.type, 
-        amount: transaction.amount, 
-        reversedBalance: staff.walletBalance 
-      }, req);
+//     await createAuditLog(req.user._id, 'delete_transaction', 'transaction', transaction._id, 
+//       { 
+//         type: transaction.type, 
+//         amount: transaction.amount, 
+//         reversedBalance: staff.walletBalance 
+//       }, req);
 
-    await session.commitTransaction();
+//     await session.commitTransaction();
 
-    logger.info(`Transaction deleted: ${transaction._id} by admin ${req.user.phone}`);
+//     logger.info(`Transaction deleted: ${transaction._id} by admin ${req.user.phone}`);
 
-    res.json({
-      success: true,
-      message: 'Transaction deleted and balance reversed successfully'
-    });
-  } catch (error) {
-    await session.abortTransaction();
-    logger.error('Delete transaction error:', error);
-    res.status(500).json({ success: false, message: error.message });
-  } finally {
-    session.endSession();
-  }
-});
+//     res.json({
+//       success: true,
+//       message: 'Transaction deleted and balance reversed successfully'
+//     });
+//   } catch (error) {
+//     await session.abortTransaction();
+//     logger.error('Delete transaction error:', error);
+//     res.status(500).json({ success: false, message: error.message });
+//   } finally {
+//     session.endSession();
+//   }
+// });
 
 // @route   DELETE /api/admin/staff/:id
 // @desc    Delete staff member (soft delete)

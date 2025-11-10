@@ -135,14 +135,14 @@ export default function BranchesPage() {
                     </span>
                   </div>
 
-                  <div className="pt-4 border-t border-slate-800 flex gap-2">
+                  {/* <div className="pt-4 border-t border-slate-800 flex gap-2">
                     <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm">
                       Edit
                     </Button>
                     <Button className="flex-1 bg-slate-700 hover:bg-slate-600 text-white text-sm">
                       View
                     </Button>
-                  </div>
+                  </div> */}
                 </CardContent>
               </Card>
             )

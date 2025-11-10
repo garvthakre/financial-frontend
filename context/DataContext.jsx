@@ -288,13 +288,20 @@ export function DataProvider({ children }) {
     }
   }, [fetchStaff])
 
-  const deleteTransaction = useCallback(async (transactionId, role = 'admin') => {
+ const deleteTransaction = useCallback(async (transactionId, role = 'admin') => {
     try {
+      console.log('Deleting transaction:', { transactionId, role })
+      
+      // Use the correct API endpoint based on role
       const response = role === 'staff' 
         ? await api.deleteStaffTransaction(transactionId)
         : await api.deleteTransaction(transactionId)
-        
+      
+      console.log('Delete transaction response:', response)
+      
       if (response?.success) {
+        // Remove transaction from local state immediately
+        setTransactions(prev => prev.filter(t => t.id !== transactionId))
         return { success: true, data: response.data }
       }
       return { success: false, message: response?.message || 'Failed to delete transaction' }

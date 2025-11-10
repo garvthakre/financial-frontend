@@ -1,7 +1,11 @@
+// server/src/routes/transactionRoutes.js - ADD DELETE ROUTE
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { protect, authorize } = require('../middleware/auth');
 const transactionService = require('../services/transactionService');
+const Transaction = require('../models/Transaction');
+const User = require('../models/User');
+const mongoose = require('mongoose');
 const logger = require('../utils/logger');
 
 const router = express.Router();
@@ -48,7 +52,7 @@ router.post('/', authorize('staff'), [
       utrId
     }, req);
 
-    logger.info(`Transaction created: ${transaction._id} by staff ${req.user.email}`);
+    logger.info(`Transaction created: ${transaction._id} by staff ${req.user.phone}`);
 
     res.status(201).json({
       success: true,
@@ -57,6 +61,87 @@ router.post('/', authorize('staff'), [
   } catch (error) {
     logger.error('Transaction creation error:', error);
     res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+// @route   DELETE /api/transactions/:id
+// @desc    Delete transaction (Admin or Staff who created it)
+// @access  Admin or Staff (own transactions only)
+router.delete('/:id', authorize('admin', 'staff'), async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const transaction = await Transaction.findById(req.params.id).session(session);
+    
+    if (!transaction) {
+      await session.abortTransaction();
+      return res.status(404).json({ success: false, message: 'Transaction not found' });
+    }
+
+    // Staff can only delete their own transactions
+    if (req.user.role === 'staff' && transaction.staffId.toString() !== req.user._id.toString()) {
+      await session.abortTransaction();
+      return res.status(403).json({ 
+        success: false, 
+        message: 'You can only delete your own transactions' 
+      });
+    }
+
+    // Don't allow deleting old transactions for staff (admin can delete any)
+    if (req.user.role === 'staff') {
+      const transactionAge = Date.now() - new Date(transaction.createdAt).getTime();
+      const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+      
+      if (transactionAge > maxAge) {
+        await session.abortTransaction();
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Cannot delete transactions older than 24 hours. Contact admin.' 
+        });
+      }
+    }
+
+    // Get staff member
+    const staff = await User.findById(transaction.staffId).session(session);
+    if (!staff) {
+      await session.abortTransaction();
+      return res.status(404).json({ success: false, message: 'Staff member not found' });
+    }
+
+    // Reverse the balance change
+    if (transaction.type === 'credit') {
+      // Was: staff balance increased by finalAmount
+      // Reverse: decrease staff balance
+      staff.walletBalance -= transaction.finalAmount;
+    } else if (transaction.type === 'debit') {
+      // Was: staff balance decreased by finalAmount
+      // Reverse: increase staff balance
+      staff.walletBalance += transaction.finalAmount;
+    }
+
+    await staff.save({ session });
+
+    // Delete the transaction
+    await Transaction.findByIdAndDelete(transaction._id).session(session);
+
+    await session.commitTransaction();
+
+    logger.info(`Transaction deleted: ${transaction._id} by ${req.user.role} ${req.user.phone}`);
+
+    res.json({
+      success: true,
+      message: 'Transaction deleted and balance reversed successfully',
+      data: {
+        newBalance: staff.walletBalance
+      }
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    logger.error('Delete transaction error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  } finally {
+    session.endSession();
   }
 });
 
