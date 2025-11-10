@@ -13,9 +13,10 @@ export default function StaffDashboardPage() {
   const [showModal, setShowModal] = useState(false)
   const data = dashboardData
 
-  useEffect(() => {
+useEffect(() => {
     if (user) {
-      fetchDashboardData("staff", user.currentBranch)
+      // Fetch combined data from all branches (no branchId filter)
+      fetchDashboardData("staff", null)
       const intervalId = startAutoRefresh(5000)
 
       return () => {

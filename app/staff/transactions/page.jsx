@@ -1,8 +1,11 @@
 "use client"
 
+"use client"
+
 import { useEffect, useState } from "react"
 import { useData } from "@/context/DataContext"
 import { useAuth } from "@/context/AuthContext"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import TransactionModal from "@/components/modals/TransactionModal"
@@ -11,13 +14,18 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 export default function StaffTransactionsPage() {
   const { fetchTransactions, transactions, loading } = useData()
   const { user } = useAuth()
+  const searchParams = useSearchParams()
   const [showModal, setShowModal] = useState(false)
+  
+  // Get branchId from URL query params
+  const branchId = searchParams.get('branchId')
 
   useEffect(() => {
     if (user) {
-      fetchTransactions("staff", user.currentBranch, 50)
+      // Fetch transactions for specific branch or all branches
+      fetchTransactions("staff", branchId, 50)
     }
-  }, [user, fetchTransactions])
+  }, [user, branchId, fetchTransactions])
 
   const chartData = Array.from({ length: 7 }).map((_, i) => ({
     day: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][i],

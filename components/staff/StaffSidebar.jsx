@@ -1,12 +1,13 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import { useState } from "react"
 
 export default function StaffSidebar() {
   const router = useRouter()
+  const pathname = usePathname()
   const { logout, user, updateBranch } = useAuth()
   const [expandBranches, setExpandBranches] = useState(true)
 
@@ -18,6 +19,8 @@ export default function StaffSidebar() {
   const handleBranchClick = (branchId) => {
     console.log("Switching to branch:", branchId)
     updateBranch(branchId)
+    // Redirect to transactions page for this branch
+    router.push(`/staff/transactions?branchId=${branchId}`)
   }
 
   return (
