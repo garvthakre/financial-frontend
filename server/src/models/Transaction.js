@@ -1,3 +1,4 @@
+// server/src/models/Transaction.js
 const mongoose = require('mongoose');
 const aggregatePaginate = require('mongoose-aggregate-paginate-v2');
 
@@ -43,7 +44,14 @@ const transactionSchema = new mongoose.Schema({
   utrId: {
     type: String,
     required: [true, 'UTR ID is required'],
-    trim: true
+    unique: true,
+    trim: true,
+    validate: {
+      validator: function(v) {
+        return /^\d{10}$/.test(v);
+      },
+      message: 'UTR ID must be exactly 10 digits'
+    }
   },
   balanceBefore: {
     type: Number,
@@ -61,6 +69,9 @@ const transactionSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Create unique index for UTR ID
+transactionSchema.index({ utrId: 1 }, { unique: true });
 
 transactionSchema.plugin(aggregatePaginate);
 
