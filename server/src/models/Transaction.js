@@ -41,18 +41,19 @@ const transactionSchema = new mongoose.Schema({
     trim: true,
     default: ''
   },
-  utrId: {
-    type: String,
-    required: [true, 'UTR ID is required'],
-    unique: true,
-    trim: true,
-    validate: {
-      validator: function(v) {
-        return /^\d{10}$/.test(v);
-      },
-      message: 'UTR ID must be exactly 10 digits'
-    }
-  },
+utrId: {
+  type: String,
+  required: [true, 'UTR ID is required'],
+  unique: true,
+  trim: true,
+  validate: {
+    validator: function(v) {
+      return /^[A-Za-z0-9]{10,22}$/.test(v);
+    },
+    message: 'UTR ID must be alphanumeric and 10–22 characters long'
+  }
+}
+,
   balanceBefore: {
     type: Number,
     required: true

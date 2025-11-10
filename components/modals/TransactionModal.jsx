@@ -20,26 +20,55 @@ export default function TransactionModal({ isOpen, onClose, role }) {
     remark: "",
   })
 
+  // Fetch branches on modal open if not already loaded
+  useEffect(() => {
+    if (isOpen && branches.length === 0) {
+      console.log('Fetching branches for transaction modal...')
+      fetchBranches()
+    }
+  }, [isOpen, branches.length, fetchBranches])
+
   // Initialize form data with user's client and current branch
   useEffect(() => {
-    if (isOpen && user) {
-      const clientId = user.clientId?._id || user.clientId || ""
-      const branchId = user.currentBranch || user.branches?.[0] || ""
+    if (isOpen && user && branches.length > 0) {
+      // For staff: Get client from first assigned branch
+      let clientId = ""
+      let branchId = ""
       
-      setFormData(prev => ({
-        ...prev,
-        clientId,
-        branchId
-      }))
+      if (user.role === 'staff' && user.branches && user.branches.length > 0) {
+        // Get the first branch or current branch
+        branchId = user.currentBranch || user.branches[0]
+        
+        // Find the branch to get its client
+        const branch = branches.find(b => b._id === branchId || b._id === branchId._id)
+        console.log('Found branch for staff:', branch)
+        if (branch) {
+          clientId = branch.clientId?._id || branch.clientId || ""
+        }
+      } else if (user.clientId) {
+        clientId = user.clientId._id || user.clientId
+      }
+      
+      console.log('Initializing form with:', { clientId, branchId, role: user.role, branchesCount: branches.length })
+      
+      if (clientId && branchId) {
+        setFormData(prev => ({
+          ...prev,
+          clientId,
+          branchId
+        }))
+      }
     }
-  }, [isOpen, user, user?.currentBranch])
+  }, [isOpen, user, branches])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     
+    console.log('Submit attempt with form data:', formData)
+    
     // Validate required fields
     if (!formData.clientId) {
-      setError("Client information is missing. Please contact administrator.")
+      setError("Client information is missing. Please wait for data to load or contact administrator.")
       return
     }
     
@@ -71,7 +100,7 @@ export default function TransactionModal({ isOpen, onClose, role }) {
       if (result.success) {
         setSuccess("Transaction created successfully!")
         
-        // **FIX: Force immediate refresh with setTimeout to ensure backend has processed**
+        // Force immediate refresh with setTimeout to ensure backend has processed
         setTimeout(async () => {
           try {
             if (role === 'staff') {
@@ -117,7 +146,7 @@ export default function TransactionModal({ isOpen, onClose, role }) {
               setSuccess("")
             }, 500)
           }
-        }, 100) // Small delay to ensure backend has finished processing
+        }, 100)
       } else {
         setError(result.message || "Failed to create transaction")
       }
@@ -139,7 +168,7 @@ export default function TransactionModal({ isOpen, onClose, role }) {
 
   // Filter branches based on staff's assigned branches
   const availableBranches = user && user.branches
-    ? branches.filter((b) => user.branches.includes(b._id))
+    ? branches.filter((b) => user.branches.includes(b._id) || user.branches.includes(b._id._id))
     : branches
 
   // Calculate commission preview
@@ -183,8 +212,8 @@ export default function TransactionModal({ isOpen, onClose, role }) {
           </div>
         )}
         
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Optional: Show client/branch selector for staff with multiple assignments */}
+        <div className="space-y-4">
+          {/* Show branch selector for staff with multiple assignments */}
           {availableBranches.length > 1 && (
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -298,14 +327,15 @@ export default function TransactionModal({ isOpen, onClose, role }) {
               Cancel
             </button>
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={loading || !formData.clientId || !formData.branchId}
-              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition disabled:opacity-50"
+              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Processing..." : "Create Transaction"}
+              {loading ? "Processing..." : (!formData.clientId || !formData.branchId) ? "Loading..." : "Create Transaction"}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   )
