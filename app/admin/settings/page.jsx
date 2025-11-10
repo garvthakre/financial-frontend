@@ -47,7 +47,7 @@ export default function SettingsPage() {
             <div>
               <p className="text-sm text-slate-400 mb-1">Max Transaction</p>
               <p className="text-2xl font-bold text-orange-400">
-                ${(settings.maxTransactionAmount / 1000).toFixed(1)}K
+                ₹{(settings.maxTransactionAmount / 1000).toFixed(1)}K
               </p>
             </div>
 

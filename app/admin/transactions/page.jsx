@@ -74,8 +74,8 @@ export default function TransactionsPage() {
                         {txn.type.toUpperCase()}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-slate-300">${(txn.amount / 1000).toFixed(2)}K</td>
-                    <td className="py-3 px-4 text-orange-400">${(txn.commission / 100).toFixed(2)}</td>
+                    <td className="py-3 px-4 text-slate-300">₹{(txn.amount / 1000).toFixed(2)}K</td>
+                    <td className="py-3 px-4 text-orange-400">₹{(txn.commission / 100).toFixed(2)}</td>
                     <td className="py-3 px-4 text-slate-400 text-xs">{txn.remark}</td>
                     <td className="py-3 px-4 text-slate-400 text-xs">{new Date(txn.date).toLocaleDateString()}</td>
                   </tr>

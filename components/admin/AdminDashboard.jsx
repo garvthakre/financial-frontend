@@ -31,19 +31,19 @@ export default function AdminDashboard({ data, loading }) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
           title="Total Credits"
-          value={data?.totalCredits ? `$${(data.totalCredits / 1000).toFixed(1)}K` : "$0"}
+          value={data?.totalCredits ? `$${(data.totalCredits / 1000).toFixed(1)}K` : "₹0"}
           change="+12.5%"
           icon="📈"
         />
         <StatCard
           title="Total Debits"
-          value={data?.totalDebits ? `$${(data.totalDebits / 1000).toFixed(1)}K` : "$0"}
+          value={data?.totalDebits ? `₹${(data.totalDebits / 1000).toFixed(1)}K` : "₹0"}
           change="-5.2%"
           icon="📉"
         />
         <StatCard
           title="Commission Earned"
-          value={data?.commission ? `$${(data.commission / 1000).toFixed(1)}K` : "$0"}
+          value={data?.commission ? `₹${(data.commission / 1000).toFixed(1)}K` : "₹0"}
           change="+8.1%"
           icon="💰"
         />

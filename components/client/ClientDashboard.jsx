@@ -27,25 +27,25 @@ export default function ClientDashboard({ data, loading }) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
           title="Wallet Balance"
-          value={data?.walletBalance ? `$${(data.walletBalance / 1000).toFixed(1)}K` : "$0"}
+          value={data?.walletBalance ? `$${(data.walletBalance / 1000).toFixed(1)}K` : "₹0"}
           change="+5.2%"
           icon="💰"
         />
         <StatCard
           title="Today's Credits"
-          value={data?.totalCredits ? `$${(data.totalCredits / 1000).toFixed(1)}K` : "$0"}
+          value={data?.totalCredits ? `$${(data.totalCredits / 1000).toFixed(1)}K` : "₹0"}
           change="+8.1%"
           icon="📈"
         />
         <StatCard
           title="Today's Debits"
-          value={data?.totalDebits ? `$${(data.totalDebits / 1000).toFixed(1)}K` : "$0"}
+          value={data?.totalDebits ? `$${(data.totalDebits / 1000).toFixed(1)}K` : "₹0"}
           change="-3.2%"
           icon="📉"
         />
         <StatCard
           title="Total Commission Paid"
-          value={data?.commission ? `$${(data.commission / 1000).toFixed(1)}K` : "$0"}
+          value={data?.commission ? `$${(data.commission / 1000).toFixed(1)}K` : "₹0"}
           change="+2.1%"
           icon="📋"
         />
@@ -80,8 +80,8 @@ export default function ClientDashboard({ data, loading }) {
                         {txn.type.toUpperCase()}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-slate-300">${(txn.amount / 1000).toFixed(2)}K</td>
-                    <td className="py-3 px-4 text-orange-400">-${(txn.commission / 100).toFixed(2)}</td>
+                    <td className="py-3 px-4 text-slate-300">₹{(txn.amount / 1000).toFixed(2)}K</td>
+                    <td className="py-3 px-4 text-orange-400">-₹{(txn.commission / 100).toFixed(2)}</td>
                     <td className="py-3 px-4 text-slate-400 text-xs font-mono">{txn.utrId}</td>
                   </tr>
                 ))}

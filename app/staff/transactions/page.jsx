@@ -55,21 +55,21 @@ export default function StaffTransactionsPage() {
           <Card className="bg-slate-900 border-slate-800">
             <CardContent className="p-6">
               <p className="text-sm text-slate-400 mb-1">Total Credits</p>
-              <p className="text-2xl font-bold text-green-400">${(totalCredits / 1000).toFixed(1)}K</p>
+              <p className="text-2xl font-bold text-green-400">₹{(totalCredits / 1000).toFixed(1)}K</p>
             </CardContent>
           </Card>
 
           <Card className="bg-slate-900 border-slate-800">
             <CardContent className="p-6">
               <p className="text-sm text-slate-400 mb-1">Total Debits</p>
-              <p className="text-2xl font-bold text-red-400">${(totalDebits / 1000).toFixed(1)}K</p>
+              <p className="text-2xl font-bold text-red-400">₹{(totalDebits / 1000).toFixed(1)}K</p>
             </CardContent>
           </Card>
 
           <Card className="bg-slate-900 border-slate-800">
             <CardContent className="p-6">
               <p className="text-sm text-slate-400 mb-1">Commission Earned</p>
-              <p className="text-2xl font-bold text-orange-400">${(totalCommission / 100).toFixed(2)}</p>
+              <p className="text-2xl font-bold text-orange-400">₹{(totalCommission / 100).toFixed(2)}</p>
             </CardContent>
           </Card>
         </div>
@@ -126,8 +126,8 @@ export default function StaffTransactionsPage() {
                           {txn.type.toUpperCase()}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-slate-300">${(txn.amount / 1000).toFixed(2)}K</td>
-                      <td className="py-3 px-4 text-orange-400">${(txn.commission / 100).toFixed(2)}</td>
+                      <td className="py-3 px-4 text-slate-300">₹{(txn.amount / 1000).toFixed(2)}K</td>
+                      <td className="py-3 px-4 text-orange-400">₹{(txn.commission / 100).toFixed(2)}</td>
                       <td className="py-3 px-4 text-slate-400 text-xs">{txn.remark}</td>
                     </tr>
                   ))}
