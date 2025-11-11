@@ -376,7 +376,7 @@ export function DataProvider({ children }) {
         startAutoRefresh,
         stopAutoRefresh,
       }}
-    >
+     >
       {children}
     </DataContext.Provider>
   )
