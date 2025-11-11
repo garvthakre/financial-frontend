@@ -64,7 +64,7 @@ export default function TransactionsPage() {
         </div>
       )}
 
-      <Card className="bg-slate-900 border-slate-800 mb-6">
+      {/* <Card className="bg-slate-900 border-slate-800 mb-6">
         <CardHeader>
           <CardTitle className="text-white">Monthly Trends</CardTitle>
           <CardDescription>Credits vs Debits over 12 months</CardDescription>
@@ -82,7 +82,7 @@ export default function TransactionsPage() {
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
-      </Card>
+      </Card> */}
 
       <Card className="bg-slate-900 border-slate-800">
         <CardHeader>
