@@ -1,4 +1,4 @@
-// server/src/routes/transactionRoutes.js - ADD DELETE ROUTE
+// server/src/routes/transactionRoutes.js - COMPLETE FIXED VERSION
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { protect, authorize } = require('../middleware/auth');
@@ -7,6 +7,7 @@ const Transaction = require('../models/Transaction');
 const User = require('../models/User');
 const mongoose = require('mongoose');
 const logger = require('../utils/logger');
+const { createAuditLog } = require('../utils/auditLog');
 
 const router = express.Router();
 
@@ -27,7 +28,11 @@ router.post('/', authorize('staff'), [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ 
+        success: false, 
+        message: errors.array()[0].msg,
+        errors: errors.array() 
+      });
     }
 
     const { clientId, branchId, type, amount, remark, utrId } = req.body;
@@ -56,6 +61,7 @@ router.post('/', authorize('staff'), [
 
     res.status(201).json({
       success: true,
+      message: 'Transaction created successfully',
       data: transaction
     });
   } catch (error) {
@@ -65,12 +71,18 @@ router.post('/', authorize('staff'), [
 });
 
 // @route   DELETE /api/transactions/:id
-// @desc    Delete transaction (Admin or Staff who created it)
-// @access  Admin or Staff (own transactions only)
+// @desc    Delete transaction with balance reversal
+// @access  Admin (any transaction) or Staff (own transactions within 24h)
 router.delete('/:id', authorize('admin', 'staff'), async (req, res) => {
   let session = null;
   
   try {
+    console.log('Delete transaction request:', {
+      transactionId: req.params.id,
+      userId: req.user._id,
+      userRole: req.user.role
+    });
+
     // Check if replica set is available for transactions
     const useTransactions = mongoose.connection.db?.topology?.description?.type === 'ReplicaSetWithPrimary';
     
@@ -79,37 +91,52 @@ router.delete('/:id', authorize('admin', 'staff'), async (req, res) => {
       await session.startTransaction();
     }
 
+    // Find transaction
     const transaction = session 
       ? await Transaction.findById(req.params.id).session(session)
       : await Transaction.findById(req.params.id);
     
     if (!transaction) {
       if (session) await session.abortTransaction();
-      return res.status(404).json({ success: false, message: 'Transaction not found' });
-    }
-
-    // Staff can only delete their own transactions
-    if (req.user.role === 'staff' && transaction.staffId.toString() !== req.user._id.toString()) {
-      if (session) await session.abortTransaction();
-      return res.status(403).json({ 
+      return res.status(404).json({ 
         success: false, 
-        message: 'You can only delete your own transactions' 
+        message: 'Transaction not found' 
       });
     }
 
-    // Don't allow deleting old transactions for staff (admin can delete any)
+    console.log('Transaction found:', {
+      id: transaction._id,
+      staffId: transaction.staffId,
+      type: transaction.type,
+      amount: transaction.amount,
+      createdAt: transaction.createdAt
+    });
+
+    // AUTHORIZATION CHECKS
+    // Staff can only delete their own transactions
     if (req.user.role === 'staff') {
+      if (transaction.staffId.toString() !== req.user._id.toString()) {
+        if (session) await session.abortTransaction();
+        return res.status(403).json({ 
+          success: false, 
+          message: 'You can only delete your own transactions' 
+        });
+      }
+
+      // Staff can only delete transactions within 24 hours
       const transactionAge = Date.now() - new Date(transaction.createdAt).getTime();
       const maxAge = 24 * 60 * 60 * 1000; // 24 hours
       
       if (transactionAge > maxAge) {
         if (session) await session.abortTransaction();
+        const hoursOld = Math.floor(transactionAge / (60 * 60 * 1000));
         return res.status(400).json({ 
           success: false, 
-          message: 'Cannot delete transactions older than 24 hours. Contact admin.' 
+          message: `Cannot delete transactions older than 24 hours (this transaction is ${hoursOld} hours old). Contact admin for assistance.` 
         });
       }
     }
+    // Admin can delete any transaction (no time restriction)
 
     // Get staff member
     const staff = session
@@ -118,15 +145,50 @@ router.delete('/:id', authorize('admin', 'staff'), async (req, res) => {
       
     if (!staff) {
       if (session) await session.abortTransaction();
-      return res.status(404).json({ success: false, message: 'Staff member not found' });
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Staff member not found' 
+      });
     }
 
-    // Reverse the balance change
+    console.log('Staff found:', {
+      id: staff._id,
+      name: staff.name,
+      currentBalance: staff.walletBalance
+    });
+
+    // Calculate balance reversal
+    const oldBalance = staff.walletBalance;
+    let newBalance;
+
     if (transaction.type === 'credit') {
-      staff.walletBalance -= transaction.finalAmount;
+      // Was: staff received finalAmount (amount - commission)
+      // Reverse: subtract finalAmount from staff balance
+      newBalance = oldBalance - transaction.finalAmount;
+      console.log('Reversing CREDIT:', {
+        oldBalance,
+        finalAmount: transaction.finalAmount,
+        newBalance
+      });
     } else if (transaction.type === 'debit') {
-      staff.walletBalance += transaction.finalAmount;
+      // Was: staff paid finalAmount (amount + commission)
+      // Reverse: add finalAmount back to staff balance
+      newBalance = oldBalance + transaction.finalAmount;
+      console.log('Reversing DEBIT:', {
+        oldBalance,
+        finalAmount: transaction.finalAmount,
+        newBalance
+      });
+    } else {
+      if (session) await session.abortTransaction();
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid transaction type' 
+      });
     }
+
+    // Update staff balance
+    staff.walletBalance = newBalance;
 
     if (session) {
       await staff.save({ session });
@@ -137,19 +199,50 @@ router.delete('/:id', authorize('admin', 'staff'), async (req, res) => {
       await Transaction.findByIdAndDelete(transaction._id);
     }
 
-    logger.info(`Transaction deleted: ${transaction._id} by ${req.user.role} ${req.user.phone}`);
+    // Create audit log
+    await createAuditLog(
+      req.user._id,
+      'delete_transaction',
+      'transaction',
+      transaction._id,
+      {
+        deletedBy: req.user.role,
+        transactionType: transaction.type,
+        amount: transaction.amount,
+        finalAmount: transaction.finalAmount,
+        oldStaffBalance: oldBalance,
+        newStaffBalance: newBalance,
+        reversalAmount: transaction.finalAmount
+      },
+      req
+    );
+
+    logger.info(`Transaction deleted: ${transaction._id} by ${req.user.role} ${req.user.phone}. Staff balance: ${oldBalance} -> ${newBalance}`);
 
     res.json({
       success: true,
       message: 'Transaction deleted and balance reversed successfully',
       data: {
-        newBalance: staff.walletBalance
+        deletedTransactionId: transaction._id,
+        transactionType: transaction.type,
+        reversedAmount: transaction.finalAmount,
+        oldBalance: oldBalance,
+        newBalance: newBalance,
+        staff: {
+          id: staff._id,
+          name: staff.name,
+          walletBalance: newBalance
+        }
       }
     });
   } catch (error) {
     if (session) await session.abortTransaction();
     logger.error('Delete transaction error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error('Delete transaction error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Failed to delete transaction'
+    });
   } finally {
     if (session) session.endSession();
   }
@@ -157,22 +250,31 @@ router.delete('/:id', authorize('admin', 'staff'), async (req, res) => {
 
 // @route   GET /api/transactions/:id
 // @desc    Get transaction by ID
-// @access  Staff, Client, Admin
+// @access  Staff (own), Client (own), Admin (all)
 router.get('/:id', async (req, res) => {
   try {
     const transaction = await transactionService.getTransactionById(req.params.id);
     
     if (!transaction) {
-      return res.status(404).json({ success: false, message: 'Transaction not found' });
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Transaction not found' 
+      });
     }
 
     // Check access rights
     if (req.user.role === 'staff' && transaction.staffId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, message: 'Access denied' });
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied' 
+      });
     }
     
     if (req.user.role === 'client' && transaction.clientId._id.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, message: 'Access denied' });
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied' 
+      });
     }
 
     res.json({
@@ -181,7 +283,10 @@ router.get('/:id', async (req, res) => {
     });
   } catch (error) {
     logger.error('Get transaction error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
   }
 });
 

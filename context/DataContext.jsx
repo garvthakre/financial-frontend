@@ -1,4 +1,4 @@
-// context/DataContext.jsx - UPDATED WITH STAFF ASSIGNMENT
+// context/DataContext.jsx - WITH PROPER DELETE HANDLING
 "use client"
 
 import { createContext, useContext, useState, useCallback, useRef } from "react"
@@ -96,6 +96,7 @@ export function DataProvider({ children }) {
           finalAmount: txn.finalAmount,
           remark: txn.remark || '',
           date: txn.createdAt,
+          createdAt: txn.createdAt,
           balanceBefore: txn.balanceBefore,
           balanceAfter: txn.balanceAfter,
           status: txn.status,
@@ -221,7 +222,7 @@ export function DataProvider({ children }) {
       console.log('Assignment response:', response)
       
       if (response?.success) {
-        await fetchStaff() // Refresh staff list to show updated assignments
+        await fetchStaff()
         return { success: true }
       }
       return { success: false, message: response?.message || 'Failed to assign branches' }
@@ -244,7 +245,6 @@ export function DataProvider({ children }) {
       return { success: false, message: error.message || 'Failed to remove staff from branch' }
     }
   }, [fetchStaff])
-  // Add these methods to context/DataContext.jsx
 
   const deleteClient = useCallback(async (clientId) => {
     try {
@@ -288,20 +288,27 @@ export function DataProvider({ children }) {
     }
   }, [fetchStaff])
 
- const deleteTransaction = useCallback(async (transactionId, role = 'admin') => {
+  const deleteTransaction = useCallback(async (transactionId, role = 'admin') => {
     try {
       console.log('Deleting transaction:', { transactionId, role })
       
-      // Use the correct API endpoint based on role
-      const response = role === 'staff' 
-        ? await api.deleteStaffTransaction(transactionId)
-        : await api.deleteTransaction(transactionId)
+      // Use the correct API endpoint
+      const response = await api.deleteTransaction(transactionId)
       
       console.log('Delete transaction response:', response)
       
       if (response?.success) {
-        // Remove transaction from local state immediately
+        // Update local state immediately
         setTransactions(prev => prev.filter(t => t.id !== transactionId))
+        
+        // Update dashboard data if balance changed
+        if (response.data?.newBalance !== undefined) {
+          setDashboardData(prev => prev ? {
+            ...prev,
+            walletBalance: response.data.newBalance
+          } : null)
+        }
+        
         return { success: true, data: response.data }
       }
       return { success: false, message: response?.message || 'Failed to delete transaction' }
@@ -311,8 +318,6 @@ export function DataProvider({ children }) {
     }
   }, [])
 
-// Add these to the DataContext.Provider value:
-// deleteClient, deleteBranch, deleteStaff, deleteTransaction
   const addTransaction = useCallback(async (txnData) => {
     try {
       console.log('Creating transaction with data:', txnData)
@@ -361,7 +366,10 @@ export function DataProvider({ children }) {
         addClient,
         addBranch,
         addStaff,
-        deleteClient, deleteBranch, deleteStaff, deleteTransaction,
+        deleteClient, 
+        deleteBranch, 
+        deleteStaff, 
+        deleteTransaction,
         assignStaffToBranches,
         removeStaffFromBranch,
         addTransaction,

@@ -1,4 +1,4 @@
-// server/src/routes/staffRoutes.js - FIXED
+// server/src/routes/staffRoutes.js - CLEAN VERSION
 const express = require('express');
 const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
@@ -13,6 +13,8 @@ const router = express.Router();
 router.use(protect, authorize('staff'));
 
 // @route   GET /api/staff/dashboard
+// @desc    Get staff dashboard with balance and today's transactions
+// @access  Staff only
 router.get('/dashboard', async (req, res) => {
   try {
     const { branchId } = req.query;
@@ -28,17 +30,24 @@ router.get('/dashboard', async (req, res) => {
     });
   } catch (error) {
     logger.error('Staff dashboard error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
   }
 });
 
 // @route   GET /api/staff/branches
+// @desc    Get branches assigned to staff member
+// @access  Staff only
 router.get('/branches', async (req, res) => {
   try {
     const branches = await Branch.find({ 
       _id: { $in: req.user.branches },
       isActive: true
-    }).populate('clientId', 'name phone');
+    })
+      .populate('clientId', 'name phone')
+      .sort({ name: 1 });
     
     res.json({
       success: true,
@@ -47,11 +56,16 @@ router.get('/branches', async (req, res) => {
     });
   } catch (error) {
     logger.error('Get branches error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
   }
 });
 
 // @route   GET /api/staff/transactions
+// @desc    Get staff member's transactions
+// @access  Staff only
 router.get('/transactions', async (req, res) => {
   try {
     const { page = 1, limit = 50, branchId, type } = req.query;
@@ -76,11 +90,11 @@ router.get('/transactions', async (req, res) => {
       query.type = type;
     }
 
-    // First, let's check if there are any transactions at all
+    // Check total count
     const totalCount = await Transaction.countDocuments(query);
-    console.log(`Found ${totalCount} transactions matching query`);
+    console.log(`Found ${totalCount} transactions for staff`);
 
-    // If using aggregatePaginate
+    // Use aggregation with pagination
     if (Transaction.aggregatePaginate) {
       const aggregate = Transaction.aggregate([
         { $match: query },
@@ -144,7 +158,7 @@ router.get('/transactions', async (req, res) => {
         data: transactions
       });
     } else {
-      // Fallback without pagination
+      // Fallback without aggregatePaginate
       const transactions = await Transaction.find(query)
         .sort({ createdAt: -1 })
         .limit(parseInt(limit))
@@ -169,80 +183,34 @@ router.get('/transactions', async (req, res) => {
   } catch (error) {
     logger.error('Get transactions error:', error);
     console.error('Get transactions error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
   }
 });
-// Add this route to server/src/routes/staffRoutes.js
 
-// // @route   DELETE /api/staff/transactions/:id
-// // @desc    Delete own transaction (with balance reversal)
-// router.delete('/transactions/:id', async (req, res) => {
-//   const session = await mongoose.startSession();
-//   session.startTransaction();
-
-//   try {
-//     const transaction = await Transaction.findById(req.params.id).session(session);
+// @route   GET /api/staff/balance
+// @desc    Get current wallet balance
+// @access  Staff only
+router.get('/balance', async (req, res) => {
+  try {
+    const staff = await User.findById(req.user._id).select('walletBalance');
     
-//     if (!transaction) {
-//       await session.abortTransaction();
-//       return res.status(404).json({ success: false, message: 'Transaction not found' });
-//     }
-
-//     // Verify staff owns this transaction
-//     if (transaction.staffId.toString() !== req.user._id.toString()) {
-//       await session.abortTransaction();
-//       return res.status(403).json({ 
-//         success: false, 
-//         message: 'You can only delete your own transactions' 
-//       });
-//     }
-
-//     // Don't allow deleting old transactions (e.g., older than 24 hours)
-//     const transactionAge = Date.now() - new Date(transaction.createdAt).getTime();
-//     const maxAge = 24 * 60 * 60 * 1000; // 24 hours
-    
-//     if (transactionAge > maxAge) {
-//       await session.abortTransaction();
-//       return res.status(400).json({ 
-//         success: false, 
-//         message: 'Cannot delete transactions older than 24 hours. Contact admin.' 
-//       });
-//     }
-
-//     // Get staff member
-//     const staff = await User.findById(req.user._id).session(session);
-
-//     // Reverse the balance change
-//     if (transaction.type === 'credit') {
-//       staff.walletBalance -= transaction.finalAmount;
-//     } else if (transaction.type === 'debit') {
-//       staff.walletBalance += transaction.finalAmount;
-//     }
-
-//     await staff.save({ session });
-
-//     // Delete the transaction
-//     await Transaction.findByIdAndDelete(transaction._id).session(session);
-
-//     await session.commitTransaction();
-
-//     logger.info(`Transaction deleted: ${transaction._id} by staff ${req.user.phone}`);
-
-//     res.json({
-//       success: true,
-//       message: 'Transaction deleted and balance reversed successfully',
-//       data: {
-//         newBalance: staff.walletBalance
-//       }
-//     });
-//   } catch (error) {
-//     await session.abortTransaction();
-//     logger.error('Delete transaction error:', error);
-//     res.status(500).json({ success: false, message: error.message });
-//   } finally {
-//     session.endSession();
-//   }
-// });
-
+    res.json({
+      success: true,
+      data: {
+        walletBalance: staff.walletBalance || 0,
+        isNegative: (staff.walletBalance || 0) < 0
+      }
+    });
+  } catch (error) {
+    logger.error('Get balance error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
+  }
+});
 
 module.exports = router;
