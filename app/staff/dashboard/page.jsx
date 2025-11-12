@@ -1,33 +1,39 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useData } from "@/context/DataContext"
-import { useAuth } from "@/context/AuthContext"
-import StaffDashboard from "@/components/staff/StaffDashboard"
-import TransactionModal from "@/components/modals/TransactionModal"
-import StatisticsOverview from "@/components/charts/StatisticsOverview"
+import { useEffect, useState } from "react";
+import { useData } from "@/context/DataContext";
+import { useAuth } from "@/context/AuthContext";
+import StaffDashboard from "@/components/staff/StaffDashboard";
+import TransactionModal from "@/components/modals/TransactionModal";
+import StatisticsOverview from "@/components/charts/StatisticsOverview";
 
 export default function StaffDashboardPage() {
-  const { fetchDashboardData, dashboardData, loading, startAutoRefresh, stopAutoRefresh } = useData()
-  const { user } = useAuth()
-  const [showModal, setShowModal] = useState(false)
-  const data = dashboardData
+  const {
+    fetchDashboardData,
+    dashboardData,
+    loading,
+    startAutoRefresh,
+    stopAutoRefresh,
+  } = useData();
+  const { user } = useAuth();
+  const [showModal, setShowModal] = useState(false);
+  const data = dashboardData;
 
-useEffect(() => {
+  useEffect(() => {
     if (user) {
       // Fetch combined data from all branches (no branchId filter)
-      fetchDashboardData("staff", null)
-      const intervalId = startAutoRefresh(5000)
+      fetchDashboardData("staff", null);
+      const intervalId = startAutoRefresh(5000);
 
       return () => {
-        stopAutoRefresh()
-      }
+        stopAutoRefresh();
+      };
     }
-  }, [user, fetchDashboardData, startAutoRefresh, stopAutoRefresh])
+  }, [user, fetchDashboardData, startAutoRefresh, stopAutoRefresh]);
 
   // CHANGED: Balance is now credits - debits
-  const balance = data?.walletBalance || 0
-  const isNegative = balance < 0
+  const balance = data?.walletBalance || 0;
+  const isNegative = balance < 0;
 
   return (
     <>
@@ -36,7 +42,8 @@ useEffect(() => {
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">Dashboard</h1>
             <p className="text-slate-400">
-              Managing: <span className="text-blue-400">{user?.currentBranch}</span>
+              Managing:{" "}
+              <span className="text-blue-400">{user?.currentBranch}</span>
             </p>
           </div>
           <button
@@ -52,28 +59,28 @@ useEffect(() => {
           stats={[
             {
               title: "My Balance",
-              value: `₹${(Math.abs(balance) / 1000).toFixed(1)}K`,
+              value: `₹${Math.abs(balance)}`,
               trend: isNegative ? "Negative Balance" : "Positive Balance",
               icon: "💰",
               color: isNegative ? "red" : "green",
             },
             {
               title: "Today's Credits",
-              value: data?.totalCredits ? `₹${(data.totalCredits / 1000).toFixed(1)}K` : "₹0",
+              value: data?.totalCredits ? `₹${data.totalCredits}` : "₹0",
               trend: "+",
               icon: "📈",
               color: "green",
             },
             {
               title: "Today's Debits",
-              value: data?.totalDebits ? `₹${(data.totalDebits / 1000).toFixed(1)}K` : "₹0",
+              value: data?.totalDebits ? `₹${data.totalDebits}` : "₹0",
               trend: "-",
               icon: "📉",
               color: "red",
             },
             {
               title: "Commission (3%)",
-              value: data?.commission ? `₹${(data.commission / 1000).toFixed(1)}K` : "₹0",
+              value: data?.commission ? `₹${data.commission}` : "₹0",
               trend: "",
               icon: "💸",
               color: "orange",
@@ -106,11 +113,15 @@ useEffect(() => {
             </p>
           </div>
         </div> */}
-
- 
       </div>
 
-      {showModal && <TransactionModal isOpen={showModal} onClose={() => setShowModal(false)} role="staff" />}
+      {showModal && (
+        <TransactionModal
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+          role="staff"
+        />
+      )}
     </>
-  )
+  );
 }
