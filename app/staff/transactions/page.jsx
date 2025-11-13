@@ -1,4 +1,4 @@
-// app/admin/transactions/page.jsx - WITH DELETE FUNCTIONALITY
+ 
 "use client";
 
 import { useEffect, useState } from "react";
@@ -24,6 +24,7 @@ export default function StaffTransactionsPage() {
   const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const branchId = searchParams.get("branchId");
 
@@ -69,10 +70,24 @@ export default function StaffTransactionsPage() {
     (sum, t) => (t.type === "debit" ? sum + t.amount : sum),
     0
   );
+  // Only calculate commission on CREDIT transactions
   const totalCommission = transactions.reduce(
-    (sum, t) => sum + t.commission,
+    (sum, t) => (t.type === "credit" ? sum + t.commission : sum),
     0
   );
+
+  // Filter transactions based on search query
+  const filteredTransactions = transactions.filter((txn) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      txn.utrId?.toLowerCase().includes(query) ||
+      txn.amount?.toString().includes(query) ||
+      txn.remark?.toLowerCase().includes(query) ||
+      txn.type?.toLowerCase().includes(query) ||
+      new Date(txn.createdAt).toLocaleDateString().toLowerCase().includes(query)
+    );
+  });
 
   const canDelete = (transaction) => {
     const transactionAge =
@@ -131,7 +146,7 @@ export default function StaffTransactionsPage() {
 
           <Card className="bg-slate-900 border-slate-800">
             <CardContent className="p-6">
-              <p className="text-sm text-slate-400 mb-1">Commission Earned</p>
+              <p className="text-sm text-slate-400 mb-1">Commission Earned (Credits Only)</p>
               <p className="text-2xl font-bold text-orange-400">
                 ₹{(totalCommission / 100).toFixed(2)}
               </p>
@@ -142,12 +157,25 @@ export default function StaffTransactionsPage() {
         {/* Transactions Table */}
         <Card className="bg-slate-900 border-slate-800">
           <CardHeader>
-            <CardTitle className="text-white">
-              All Transactions ({transactions.length})
-            </CardTitle>
-            <CardDescription>
-              Complete transaction history for this branch
-            </CardDescription>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle className="text-white">
+                  All Transactions ({filteredTransactions.length})
+                </CardTitle>
+                <CardDescription>
+                  Complete transaction history for this branch
+                </CardDescription>
+              </div>
+              <div className="w-64">
+                <input
+                  type="text"
+                  placeholder="Search transactions..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {loading && transactions.length === 0 ? (
@@ -157,6 +185,10 @@ export default function StaffTransactionsPage() {
             ) : transactions.length === 0 ? (
               <div className="text-center py-12 text-slate-400">
                 No transactions yet. Create your first transaction!
+              </div>
+            ) : filteredTransactions.length === 0 ? (
+              <div className="text-center py-12 text-slate-400">
+                No transactions found matching "{searchQuery}"
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -190,7 +222,7 @@ export default function StaffTransactionsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {transactions.map((txn) => (
+                    {filteredTransactions.map((txn) => (
                       <tr
                         key={txn.id}
                         className="border-b border-slate-800 hover:bg-slate-800"
@@ -216,7 +248,9 @@ export default function StaffTransactionsPage() {
                           ₹{txn.amount.toFixed(2)}
                         </td>
                         <td className="py-3 px-4 text-orange-400">
-                          ₹{(txn.commission / 100).toFixed(2)}
+                          {txn.type === "credit" 
+                            ? `₹${(txn.commission / 100).toFixed(2)}`
+                            : "-"}
                         </td>
                         <td className="py-3 px-4 text-blue-400 font-semibold">
                           ₹{txn.finalAmount.toFixed(2)}

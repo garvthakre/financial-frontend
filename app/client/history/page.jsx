@@ -1,4 +1,4 @@
-// app/client/history/page.jsx - FIXED VERSION
+// app/client/history/page.jsx - WITH SEARCH FEATURE
 "use client";
 
 import { useEffect, useState } from "react";
@@ -23,15 +23,25 @@ import {
 export default function HistoryPage() {
   const { fetchTransactions, transactions, loading } = useData();
   const [filterType, setFilterType] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchTransactions("client", null, 100);
   }, [fetchTransactions]);
 
-  const filteredTransactions =
-    filterType === "all"
-      ? transactions
-      : transactions.filter((t) => t.type === filterType);
+  const filteredTransactions = transactions
+    .filter((t) => filterType === "all" || t.type === filterType)
+    .filter((txn) => {
+      if (!searchQuery) return true;
+      const query = searchQuery.toLowerCase();
+      return (
+        txn.utrId?.toLowerCase().includes(query) ||
+        txn.amount?.toString().includes(query) ||
+        txn.remark?.toLowerCase().includes(query) ||
+        txn.type?.toLowerCase().includes(query) ||
+        new Date(txn.date).toLocaleDateString().toLowerCase().includes(query)
+      );
+    });
 
   // Use real transaction data for chart
   const chartData = Array.from({ length: 30 }).map((_, i) => {
@@ -63,7 +73,10 @@ export default function HistoryPage() {
       (sum, t) => (t.type === "debit" ? sum + t.amount : sum),
       0
     ),
-    totalCommission: transactions.reduce((sum, t) => sum + t.commission, 0),
+    totalCommission: transactions.reduce(
+      (sum, t) => (t.type === "credit" ? sum + t.commission : sum),
+      0
+    ),
     avgTransaction:
       transactions.length > 0
         ? Math.floor(
@@ -106,7 +119,7 @@ export default function HistoryPage() {
 
         <Card className="bg-slate-900 border-slate-800">
           <CardContent className="p-6">
-            <p className="text-sm text-slate-400 mb-1">Commissions Paid</p>
+            <p className="text-sm text-slate-400 mb-1">Commissions Paid (Credits Only)</p>
             <p className="text-2xl font-bold text-orange-400">
               ₹{(stats.totalCommission / 100).toFixed(2)}
             </p>
@@ -154,8 +167,8 @@ export default function HistoryPage() {
         </CardContent>
       </Card>
 
-      {/* Filter */}
-      <div className="mb-6">
+      {/* Filter and Search */}
+      <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
         <div className="flex gap-2">
           <button
             onClick={() => setFilterType("all")}
@@ -188,6 +201,16 @@ export default function HistoryPage() {
             Debits
           </button>
         </div>
+        
+        <div className="w-full sm:w-64">
+          <input
+            type="text"
+            placeholder="Search transactions..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+          />
+        </div>
       </div>
 
       {/* Transactions Table */}
@@ -203,9 +226,13 @@ export default function HistoryPage() {
             <div className="text-center py-12 text-slate-400">
               Loading transactions...
             </div>
-          ) : filteredTransactions.length === 0 ? (
+          ) : transactions.length === 0 ? (
             <div className="text-center py-12 text-slate-400">
               No transactions found
+            </div>
+          ) : filteredTransactions.length === 0 ? (
+            <div className="text-center py-12 text-slate-400">
+              No transactions found matching your filters
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -255,7 +282,9 @@ export default function HistoryPage() {
                         ₹{txn.amount.toFixed(2)}
                       </td>
                       <td className="py-3 px-4 text-orange-400">
-                        -₹{(txn.commission / 100).toFixed(2)}
+                        {txn.type === "credit" 
+                          ? `-₹${(txn.commission / 100).toFixed(2)}`
+                          : "-"}
                       </td>
                       <td className="py-3 px-4 text-green-400 font-semibold">
                         ₹{txn.finalAmount.toFixed(2)}
