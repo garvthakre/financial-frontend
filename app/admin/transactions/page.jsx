@@ -187,13 +187,13 @@ export default function TransactionsPage() {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-slate-300">
-                        ₹{txn.amount.toFixed(2)}K
+                        ₹{txn.amount.toFixed(2)}
                       </td>
                       <td className="py-3 px-4 text-orange-400">
                         ₹{(txn.commission / 100).toFixed(2)}
                       </td>
                       <td className="py-3 px-4 text-blue-400">
-                        ₹{txn.finalAmount.toFixed(2)}K
+                        ₹{txn.finalAmount.toFixed(2)}
                       </td>
                       <td className="py-3 px-4 text-slate-400 text-xs">
                         {txn.remark || "-"}

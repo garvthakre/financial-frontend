@@ -46,7 +46,7 @@ export default function AdminDashboard({ data, loading }) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
           title="Total Credits"
-          value={data?.totalCredits ? `$${data.totalCredits}` : "₹0"}
+          value={data?.totalCredits ? `₹${data.totalCredits}` : "₹0"}
           change="+12.5%"
           icon="📈"
         />
@@ -151,10 +151,10 @@ export default function AdminDashboard({ data, loading }) {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-slate-300">
-                      ${txn.amount.toFixed(2)}K
+                      ₹{txn.amount.toFixed(2)}K
                     </td>
                     <td className="py-3 px-4 text-slate-300">
-                      ${(txn.commission / 100).toFixed(2)}
+                      ₹{(txn.commission / 100).toFixed(2)}
                     </td>
                     <td className="py-3 px-4 text-slate-400 text-xs">
                       {new Date(txn.date).toLocaleDateString()}
